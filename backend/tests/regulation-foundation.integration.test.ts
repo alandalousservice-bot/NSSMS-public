@@ -49,7 +49,7 @@ suite('regulation foundation migration', () => {
     } finally { client.release(); }
   });
 
-  it('keeps draft versions editable but protects approved versions and children', async () => {
+  it('allows all draft child mutations and blocks every approved child mutation', async () => {
     const client = await pool!.connect();
     try {
       await client.query('BEGIN');
@@ -57,11 +57,28 @@ suite('regulation foundation migration', () => {
       const programme = await client.query("INSERT INTO competition_programmes(season_id,code,title,effective_from) VALUES($1,'IMMUTABLE','Immutable','2097-01-01') RETURNING id", [season.rows[0].id]);
       const version = await client.query("INSERT INTO regulation_versions(version_no,programme_id,effective_period) VALUES('1.0',$1,'[2097-01-01,2098-01-01)') RETURNING id", [programme.rows[0].id]);
       await client.query("UPDATE regulation_versions SET source_summary='editable' WHERE id=$1", [version.rows[0].id]);
-      await client.query("INSERT INTO regulation_rules(regulation_version_id,rule_key,value_type,value_text) VALUES($1,'label','TEXT','draft')", [version.rows[0].id]);
+      const draftRule = await client.query("INSERT INTO regulation_rules(regulation_version_id,rule_key,value_type,value_text) VALUES($1,'label','TEXT','draft') RETURNING id", [version.rows[0].id]);
+      await client.query("UPDATE regulation_rules SET value_text='draft-updated' WHERE id=$1", [draftRule.rows[0].id]);
+      await client.query("DELETE FROM regulation_rules WHERE id=$1", [draftRule.rows[0].id]);
+      const draftSource = await client.query("INSERT INTO regulation_sources(regulation_version_id,title,issuer) VALUES($1,'Draft Source','Test') RETURNING id", [version.rows[0].id]);
+      await client.query("UPDATE regulation_sources SET title='Draft Source Updated' WHERE id=$1", [draftSource.rows[0].id]);
+      await client.query("DELETE FROM regulation_sources WHERE id=$1", [draftSource.rows[0].id]);
+      const approvedRule = await client.query("INSERT INTO regulation_rules(regulation_version_id,rule_key,value_type,value_text) VALUES($1,'approved_rule','TEXT','fixed') RETURNING id", [version.rows[0].id]);
+      const approvedSource = await client.query("INSERT INTO regulation_sources(regulation_version_id,title,issuer) VALUES($1,'Approved Source','Test') RETURNING id", [version.rows[0].id]);
       await client.query("UPDATE regulation_versions SET status='APPROVED' WHERE id=$1", [version.rows[0].id]);
       await expect(client.query("UPDATE regulation_versions SET source_summary='tampered' WHERE id=$1", [version.rows[0].id])).rejects.toThrow(/immutable/);
-      await expect(client.query("UPDATE regulation_rules SET value_text='tampered' WHERE regulation_version_id=$1", [version.rows[0].id])).rejects.toThrow(/immutable/);
+      await expect(client.query("INSERT INTO regulation_rules(regulation_version_id,rule_key,value_type,value_text) VALUES($1,'late_rule','TEXT','blocked')", [version.rows[0].id])).rejects.toThrow(/immutable/);
+      await expect(client.query("UPDATE regulation_rules SET value_text='tampered' WHERE id=$1", [approvedRule.rows[0].id])).rejects.toThrow(/immutable/);
+      await expect(client.query("DELETE FROM regulation_rules WHERE id=$1", [approvedRule.rows[0].id])).rejects.toThrow(/immutable/);
+      await expect(client.query("INSERT INTO regulation_sources(regulation_version_id,title,issuer) VALUES($1,'Late Source','Test')", [version.rows[0].id])).rejects.toThrow(/immutable/);
+      await expect(client.query("UPDATE regulation_sources SET title='tampered' WHERE id=$1", [approvedSource.rows[0].id])).rejects.toThrow(/immutable/);
+      await expect(client.query("DELETE FROM regulation_sources WHERE id=$1", [approvedSource.rows[0].id])).rejects.toThrow(/immutable/);
       await expect(client.query("DELETE FROM regulation_versions WHERE id=$1", [version.rows[0].id])).rejects.toThrow(/immutable/);
+
+      for (const status of ['ACTIVE', 'RETIRED']) {
+        const future = await client.query("INSERT INTO regulation_versions(version_no,programme_id,effective_period,status) VALUES($1,$2,$3,$4) RETURNING id", [`${status}-1.0`, programme.rows[0].id, status === 'ACTIVE' ? '[2097-01-01,2097-06-01)' : '[2097-06-01,2098-01-01)', status]);
+        await expect(client.query("INSERT INTO regulation_rules(regulation_version_id,rule_key,value_type,value_text) VALUES($1,$2,'TEXT','blocked')", [future.rows[0].id, `${status}_late`])).rejects.toThrow(/immutable/);
+      }
       await client.query('ROLLBACK');
     } finally { client.release(); }
   });
