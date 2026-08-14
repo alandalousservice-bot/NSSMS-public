@@ -1,0 +1,32 @@
+{
+  "openapi": "3.0.3",
+  "info": {"title":"NSSMS API","version":"1.0.0","description":"Versioned API for the National School Sports Management System."},
+  "servers":[{"url":"http://localhost:3000"}],
+  "components":{"securitySchemes":{"bearerAuth":{"type":"http","scheme":"bearer"}}},
+  "paths":{
+    "/health":{"get":{"summary":"Liveness check","responses":{"200":{"description":"Service is alive"}}}},
+    "/ready":{"get":{"summary":"Readiness check","responses":{"200":{"description":"Database is reachable"},"503":{"description":"Dependency unavailable"}}}},
+    "/api/v1/auth/login":{"post":{"summary":"Authenticate an administrator","requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","required":["username","password"],"properties":{"username":{"type":"string"},"password":{"type":"string","format":"password"}}}}}},"responses":{"200":{"description":"Authenticated"},"401":{"description":"Invalid credentials"}}}},
+    "/api/v1/auth/logout":{"post":{"security":[{"bearerAuth":[]}],"summary":"Record an administrative logout","responses":{"200":{"description":"Logged out"},"401":{"description":"Unauthorized"}}}},
+    "/api/v1/auth/me":{"get":{"security":[{"bearerAuth":[]}],"summary":"Read the authenticated administrator","responses":{"200":{"description":"Authenticated user"},"401":{"description":"Unauthorized"}}}},
+    "/api/v1/public/licenses/verify/{reference}":{"get":{"summary":"Publicly verify a license without exposing internal identifiers","parameters":[{"name":"reference","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"Approved public verification projection"},"404":{"description":"Not found"}}}},
+    "/api/v1/public/seasons":{"get":{"summary":"List approved public seasons","parameters":[{"name":"page","in":"query","schema":{"type":"integer","minimum":1}},{"name":"pageSize","in":"query","schema":{"type":"integer","minimum":1,"maximum":100}}],"responses":{"200":{"description":"Public season list"}}}},
+    "/api/v1/public/competitions":{"get":{"summary":"List approved public competitions","parameters":[{"name":"page","in":"query","schema":{"type":"integer","minimum":1}},{"name":"pageSize","in":"query","schema":{"type":"integer","minimum":1,"maximum":100}}],"responses":{"200":{"description":"Public competition list"}}}},
+    "/api/v1/public/results":{"get":{"summary":"List published results","parameters":[{"name":"page","in":"query","schema":{"type":"integer","minimum":1}},{"name":"pageSize","in":"query","schema":{"type":"integer","minimum":1,"maximum":100}}],"responses":{"200":{"description":"Public results list"}}}},
+    "/api/v1/public/geography/wilayas":{"get":{"summary":"List Algerian wilayas","responses":{"200":{"description":"Wilaya list"}}}},
+    "/api/v1/public/geography/wilayas/{id}/dairas":{"get":{"summary":"List dairas for a wilaya","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"integer","minimum":1,"maximum":58}}],"responses":{"200":{"description":"Daira list"},"400":{"description":"Invalid wilaya id"}}}},
+    "/api/v1/public/geography/dairas/{id}/communes":{"get":{"summary":"List communes for a daira","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"integer","minimum":0}}],"responses":{"200":{"description":"Commune list"},"400":{"description":"Invalid daira id"}}}},
+    "/api/v1/admin/seasons":{"get":{"security":[{"bearerAuth":[]}],"summary":"List seasons","responses":{"200":{"description":"Season list"}}},"post":{"security":[{"bearerAuth":[]}],"summary":"Create a draft season","responses":{"201":{"description":"Created"}}}},
+    "/api/v1/admin/competitions":{"get":{"security":[{"bearerAuth":[]}],"summary":"List competitions","responses":{"200":{"description":"Competition list"}}},"post":{"security":[{"bearerAuth":[]}],"summary":"Create a draft competition","responses":{"201":{"description":"Created"}}}},
+    "/api/v1/admin/licenses":{"get":{"security":[{"bearerAuth":[]}],"summary":"List licenses","responses":{"200":{"description":"License list"}}},"post":{"security":[{"bearerAuth":[]}],"summary":"Issue a license and QR reference","responses":{"201":{"description":"Issued"}}}},
+    "/api/v1/admin/audit":{"get":{"security":[{"bearerAuth":[]}],"summary":"Read protected audit events","responses":{"200":{"description":"Audit events"}}}},
+    "/api/v1/admin/audit/{id}":{"get":{"security":[{"bearerAuth":[]}],"summary":"Read one protected audit event","parameters":[{"name":"id","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}],"responses":{"200":{"description":"Audit event detail"},"404":{"description":"Audit event not found"}}}},
+    "/api/v1/admin/reports/summary":{"get":{"security":[{"bearerAuth":[]}],"summary":"Get aggregate counts","responses":{"200":{"description":"Summary report"}}}},
+    "/api/v1/admin/reports/status-breakdown":{"get":{"security":[{"bearerAuth":[]}],"summary":"Get status distribution","responses":{"200":{"description":"Status breakdown report"},"401":{"description":"Unauthorized"}}}}
+    ,"/api/v1/admin/institutions":{"get":{"security":[{"bearerAuth":[]}],"summary":"List educational institutions","responses":{"200":{"description":"Institution list"}}},"post":{"security":[{"bearerAuth":[]}],"summary":"Create an educational institution","responses":{"201":{"description":"Created"}}}}
+    ,"/api/v1/admin/users":{"get":{"security":[{"bearerAuth":[]}],"summary":"List users and assigned roles","responses":{"200":{"description":"User list"}}}},
+    "/api/v1/admin/roles":{"get":{"security":[{"bearerAuth":[]}],"summary":"List roles","responses":{"200":{"description":"Role list"}}}},
+    "/api/v1/admin/users/{id}/roles":{"put":{"security":[{"bearerAuth":[]}],"summary":"Replace user roles","responses":{"200":{"description":"Roles updated"}}}}
+    ,"/api/v1/admin/licenses/sync-expiry":{"post":{"security":[{"bearerAuth":[]}],"summary":"Mark expired licenses","responses":{"200":{"description":"Expiry synchronized"}}}}
+  }
+}

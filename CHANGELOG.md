@@ -1,0 +1,114 @@
+# Changelog
+
+## 2026-08-13
+
+- Refined the frontend public portal and admin login flow with correct Arabic text encoding, configurable `VITE_API_URL`, resilient public-list loading, and a cleaner demo-account login experience.
+- Added administrative session restoration, logout/audit invocation, expired-session handling, loading states, and create-operation feedback in the admin workspace.
+- Added a live administrative summary bar for seasons, competitions, licenses, and audit events with refresh support.
+- Documented frontend local setup and `VITE_API_URL` deployment configuration.
+- Extended the integration workflow to verify authenticated audit-detail retrieval.
+- Completed final backend/frontend verification after the administrative workspace updates.
+- Added `frontend/.env.example` to standardize the local API configuration.
+- Added an automated authorization test covering the protected reports endpoint.
+- Added authorization coverage for report status breakdown.
+- Final verification completed: 17 backend tests passing and both application builds successful.
+- Extended the authenticated integration workflow to validate the status-breakdown report payload.
+- Re-ran the complete backend test suite after the final integration coverage update.
+- Added a root local runbook covering migrations, demo accounts, frontend configuration, and validation commands.
+- Added readiness endpoint coverage to the backend HTTP tests.
+- Documented the `/ready` dependency-readiness endpoint alongside `/health`.
+- Final documentation/API consistency check passed; backend and frontend builds remain successful.
+- Corrected implementation-readiness documentation to reflect the implemented protected API surface and reporting modules.
+- Updated backend README status wording to distinguish implemented foundation scope from open production approvals.
+- Reconfirmed backend and frontend production builds after documentation updates.
+- Reconfirmed the PostgreSQL migration runner remains idempotent on the local database.
+- Validated that the published OpenAPI document parses successfully as JSON.
+- Added automated coverage for API metadata and the served OpenAPI document.
+- Extended the integration workflow to cover authenticated session lookup and logout auditing.
+- Added negative authorization coverage for unauthenticated logout requests.
+- Reconfirmed backend TypeScript build after authentication test additions.
+- Added negative authorization coverage for unauthenticated session lookup.
+- Added the authenticated-user `/api/v1/auth/me` route to the OpenAPI contract.
+- Added artifact coverage ensuring `/api/v1/auth/me` remains documented and protected.
+- Updated readiness testing status to reflect completed PostgreSQL integration coverage and the remaining browser E2E gap.
+- Revalidated integration tests, backend build, and frontend build after readiness documentation changes.
+- Added the protected status-breakdown report to the OpenAPI contract.
+- Added artifact coverage for the documented status-breakdown report.
+- Final contract and test verification passed: OpenAPI valid and 21 backend tests green.
+- Removed an unused frontend report component to keep the current UI bundle free of dead code.
+- Confirmed no orphaned CSS selectors remain for the removed report component.
+- Final full-suite verification passed after frontend cleanup: 21 backend tests and both builds successful.
+- Removed internal license identifiers from the public verification UI and added public issue/expiry dates.
+- Added HTTP coverage ensuring public verification does not expose internal license identifiers.
+- Final verification after public disclosure hardening: 22 backend tests and both builds successful.
+- Added `scripts/start-local.ps1` to request backend and frontend development services with migration setup.
+- Validated startup-script syntax and README command alignment.
+- Added `scripts/stop-local.ps1` for controlled shutdown of local development listeners.
+- Validated both local lifecycle scripts and rebuilt backend/frontend successfully.
+- Hardened local shutdown to target Node.js listeners only.
+- Verified shutdown script completes safely when no development listeners are active.
+- Confirmed development ports 3000 and 5173 are free after shutdown verification.
+- Ensured the local frontend launcher binds Vite on all local interfaces for consistent browser access.
+- Revalidated both lifecycle scripts and confirmed development ports remain free.
+- Confirmed backend and frontend environment example files are present for local setup.
+- Added artifact coverage for idempotent demo-account seeding behavior.
+- Final full-suite verification after seed coverage: 23 backend tests and both builds successful.
+- Final hygiene check passed: development ports are free and no obvious private-key/API-key patterns exist in source files.
+- Reconfirmed local migration idempotency at final handoff.
+- Verified all required root runbook, environment, lifecycle-script, and OpenAPI artifacts are present.
+- Final artifact syntax check passed for lifecycle scripts, environment examples, and OpenAPI JSON.
+- Handoff checkpoint: implementation, local runbook, tests, builds, and artifact validation are complete; browser E2E and production approvals remain explicitly open.
+- Added scoped account model: association administrator, association representative, and enrolled-institution user roles with organization/institution links, migration 005, and idempotent seed script.
+- Added role-aware user dashboard UI and `/api/v1/dashboard/summary` with national, wilaya-association, daira, and institution scopes; verified live daira scope resolution.
+- Imported Algerian geography from the supplied archive: 58 wilayas and 548 dairas; added commune-ready schema and public geography lookup endpoints.
+- Started the local environment successfully; backend health and frontend HTTP checks returned 200.
+- Verified demo administrator login, session lookup, and protected report access against the running local services.
+- Verified public license verification returns a safe 404 with `Cache-Control: no-store` for an invalid reference.
+- Verified running readiness endpoint reports `ready` with database `ok`.
+- Verified the running service publishes OpenAPI 3.0.3 with authenticated-session and status-report paths.
+- Verified live authenticated logout succeeds when sent with the documented JSON content type.
+- Verified live CORS preflight allows the configured frontend origin on `localhost:5173`.
+- Verified live administration access without a bearer token is rejected with 401.
+- Confirmed the frontend development server remains reachable with HTTP 200 after live API checks.
+- Final live smoke check passed: health ok, readiness ready/database ok, frontend HTTP 200.
+- Completed browser E2E smoke test: public portal loaded, admin login succeeded, protected workspace rendered, and local services were stopped cleanly afterward.
+- Completed live smoke testing and stopped both local services cleanly; development ports are free.
+
+## Unreleased
+
+- Added implementation readiness assessment and proposed technical architecture.
+- Added the initial PostgreSQL schema and backend foundation.
+- Added administrative domain APIs, audit/readiness endpoints, OpenAPI baseline, and lifecycle/security tests.
+- Added current readiness matrix, centralized runtime configuration, graceful shutdown, public API integration, migration integrity triggers, and role administration.
+- Added reproducible PostgreSQL integration tests for core tables and append-only audit behavior.
+- Added protected non-destructive archival endpoint for supported governed records.
+- Added database-backed permission checks and default role-permission assignments.
+- Added current-user permission listing and audit events for denied archival attempts.
+- Restricted public verification and results projections to approved non-sensitive fields.
+- Added bounded pagination to public seasons, competitions, and results endpoints.
+- Added API metadata and a served OpenAPI document endpoint.
+- Added educational institution administration with organization validation and audit logging.
+- Added validated administrative search filters for institutions, participants, and seasons.
+- Added validated administrative search filters for competitions and licenses.
+- Added administrative result filtering by competition and participant.
+- Added authenticated password change with current-password verification and audit logging.
+- Added administrator account status management with self-disable protection.
+- Added administrator user creation with hashed passwords and validated role assignment.
+- Added role permission viewing and transactional permission replacement.
+- Added system administrator permission catalog endpoint.
+- Added filtered CSV export for protected audit records.
+- Added status breakdown reporting for seasons, competitions, and licenses.
+- Added participant status lifecycle management with audit logging.
+- Added educational institution status lifecycle management with audit logging.
+- Added organization status lifecycle management with audit logging.
+- Added lifecycle-aware update endpoints for core entities.
+- Added database indexes for administrative search and status filters.
+- Completed final migration baseline handling for existing databases and validated full workflow, integration, unit, and HTTP test suites.
+- Added OpenAPI artifact validation and confirmed idempotent migration execution.
+- Added read-only audit event detail endpoint for administrative review.
+- Added HTTP coverage for protected audit detail access and OpenAPI documentation.
+- Added clear conflict responses for duplicate organization and institution codes.
+- Added result status and non-destructive archival lifecycle management.
+- Added public result filtering by competition and season with bounded pagination.
+- Added public season and competition filtering with approved-state enforcement.
+- Added bounded user administration search by identity, status, and role.
