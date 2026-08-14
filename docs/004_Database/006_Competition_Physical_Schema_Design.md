@@ -43,13 +43,13 @@ The tables below are proposed physical representations. `uuid` columns are abbre
 
 | Table | Columns/types and nullability | Constraints/indexes | History/scope/audit |
 |---|---|---|---|
-| `competition_stages` | `id uuid PK`, `competition_id uuid NOT NULL`, `parent_stage_id uuid NULL`, `programme_id uuid NOT NULL`, `regulation_version_id uuid NOT NULL`, `stage_level_code text NOT NULL`, `status text NOT NULL`, `host_wilaya_id smallint NULL`, `host_daira_id integer NULL`, `host_commune_id integer NULL`, `host_organization_id uuid NULL`, start/end dates, timestamps, `archived_at` | Self-FK RESTRICT; geography FKs use existing `wilayas.id smallint`, `dairas.id integer`, `communes.id integer`; check no self-parent/date order; indexes hierarchy/status/geography | Level is data-driven text/reference, not irreversible enum. Commune/region fields are data/provenance only until authorization decision. |
+| `competition_stages` | `id uuid PK`, `competition_id uuid NOT NULL`, `parent_stage_id uuid NULL`, `programme_id uuid NOT NULL`, `programme_region_id uuid NULL`, `regulation_version_id uuid NOT NULL`, `stage_level_code text NOT NULL`, `status text NOT NULL`, `host_wilaya_id smallint NULL`, `host_daira_id integer NULL`, `host_commune_id integer NULL`, `host_organization_id uuid NULL`, start/end dates, timestamps, `archived_at` | Self-FK RESTRICT; region FK plus geography FKs use existing `wilayas.id smallint`, `dairas.id integer`, `communes.id integer`; check no self-parent/date order; indexes hierarchy/status/geography | Level is data-driven text/reference, not irreversible enum. Commune/region fields are data/provenance only until authorization decision. |
 | `calendar_occurrences` | `id uuid PK`, `stage_id uuid NOT NULL`, `event_id uuid NOT NULL`, `category_id uuid NULL`, `regulation_version_id uuid NOT NULL`, registration/start/end timestamps, `status text NOT NULL`, source reference, timestamps | FK RESTRICT; unique `(stage_id,event_id,category_id,start_at)`; index date/status and stage/date | Published dates immutable; corrections create a new occurrence/version. |
 | `venues` | `id uuid PK`, `code text NOT NULL`, `name text NOT NULL`, `wilaya_id smallint NULL`, `daira_id integer NULL`, `commune_id integer NULL`, address text NULL, `status text NOT NULL`, technical_attributes jsonb NULL, timestamps | FKs use existing geography key types; unique code; indexes geography/status; JSONB only for variable facility attributes | Retire/archive, do not delete venues used historically; inspections optional and audited. |
 | `occurrence_venues` | `id uuid PK`, `calendar_occurrence_id uuid NOT NULL`, `venue_id uuid NOT NULL`, start/end timestamps, `role text NULL`, timestamps | FKs RESTRICT; unique `(calendar_occurrence_id,venue_id,start_at)`; exclusion concept prevents same venue overlap where required | Supports N:M stage/event/time venue allocation; assignment history retained. |
 | `competition_entries` | `id uuid PK`, `stage_id uuid NOT NULL`, `category_id uuid NOT NULL`, `institution_id uuid NULL`, `representing_organization_id uuid NULL`, `entry_type text NOT NULL`, `status text NOT NULL`, `regulation_version_id uuid NOT NULL`, eligibility_data jsonb NULL, timestamps, `archived_at` | FKs RESTRICT; check institution/organization ownership; unique active subject/category/stage through subtype constraints; indexes stage/status/category/scope | Common governed record; JSONB only for submitted evidence metadata, not identity or qualification. |
-| `individual_entries` | `competition_entry_id uuid PK/FK`, `participant_id uuid NOT NULL`, duplicated immutable `stage_id uuid NOT NULL`, `category_id uuid NOT NULL`, timestamps | FKs RESTRICT; ordinary partial unique index `(stage_id,category_id,participant_id)` for active rows; deferred consistency trigger verifies duplicated keys equal parent entry; entry_type check enforced by trigger | Exactly one subtype; subtype row immutable after validation. |
-| `team_entries` | `competition_entry_id uuid PK/FK`, `team_id uuid NOT NULL`, duplicated immutable `stage_id uuid NOT NULL`, `category_id uuid NOT NULL`, timestamps | FKs RESTRICT; ordinary partial unique index `(stage_id,category_id,team_id)` for active rows; deferred consistency trigger verifies duplicated keys equal parent entry; entry_type check | Exactly one subtype; team identity/history retained. |
+| `individual_entries` | `competition_entry_id uuid PK/FK`, `participant_id uuid NOT NULL`, duplicated immutable `stage_id uuid NOT NULL`, `category_id uuid NOT NULL`, `participation_state text NOT NULL`, timestamps | Ordinary partial unique index `(stage_id,category_id,participant_id)` predicates on the duplicated subtype `participation_state`, not the parent table; deferred trigger synchronizes it with parent `competition_entries.status` and rejects mismatch | Exactly one subtype; subtype row immutable after validation. |
+| `team_entries` | `competition_entry_id uuid PK/FK`, `team_id uuid NOT NULL`, duplicated immutable `stage_id uuid NOT NULL`, `category_id uuid NOT NULL`, `participation_state text NOT NULL`, timestamps | Ordinary partial unique index `(stage_id,category_id,team_id)` predicates on duplicated subtype state; deferred trigger synchronizes it with parent status and rejects mismatch | Exactly one subtype; team identity/history retained. |
 | `teams` | `id uuid PK`, `institution_id uuid NULL`, `representing_organization_id uuid NULL`, `name text NOT NULL`, `category_id uuid NOT NULL`, `stage_id uuid NULL`, `status text NOT NULL`, timestamps | Ownership check; unique name within stage/category/owner; indexes scope/status | Team lifecycle and membership changes audited; no hard delete after entry/result. |
 | `team_members` | `id uuid PK`, `team_id uuid NOT NULL`, `participant_id uuid NOT NULL`, `role text NOT NULL`, valid_from/to timestamptz, timestamps | FK RESTRICT; unique active `(team,participant)`; check interval/role | Substitution/reserve history append-only; role values resolved from regulation. |
 | `delegations` | `id uuid PK`, `stage_id uuid NOT NULL`, representing institution/organization, `head_person_id uuid NULL`, `status text NOT NULL`, timestamps | FKs RESTRICT; unique delegation per stage/representing owner; indexes stage/scope | Composition governed by sport/stage rules; audit approval/closure. |
@@ -63,14 +63,15 @@ The tables below are proposed physical representations. `uuid` columns are abbre
 
 | Table | Columns/types and nullability | Constraints/indexes | History/scope/audit |
 |---|---|---|---|
-| `qualifications` | `id uuid PK`, source entry/result/ranking FKs (at least one required), `destination_stage_id uuid NOT NULL`, destination entry NULL, `decision_rule_version_id uuid NOT NULL`, decision/status/reason, timestamps | FKs RESTRICT; check at least one source and valid destination; unique active source/destination/category | Immutable decision; supersede/correct, never delete; scope from source/destination. |
+| `qualifications` | `id uuid PK`, `source_entry_id uuid NOT NULL`, `destination_stage_id uuid NOT NULL`, destination entry NULL, `decision_rule_version_id uuid NOT NULL`, decision/status/reason, timestamps | Exactly one authoritative source is required: `source_entry_id`; FK RESTRICT; unique active source/destination/category | Immutable decision; supersede/correct, never delete; scope from source/destination. |
+| `qualification_evidence` (optional) | `id uuid PK`, `qualification_id uuid NOT NULL`, `result_id uuid NULL`, `ranking_id uuid NULL`, evidence_type, evidence_hash, timestamps | At least one evidence FK per row; deferred trigger prevents empty evidence; multiple evidence rows allowed without ambiguity | Evidence is append-only; authoritative source remains `source_entry_id`. |
 | `results` (evolution) | Preserve existing columns/PK and `result_data jsonb`; add nullable transition FKs `stage_id`, `occurrence_id`, `entry_id`, `event_id`, `category_id`, `regulation_version_id`, `provenance_source_id`; status, `validated_at`, timestamps | Existing FKs preserved; new FKs initially nullable/restrict; indexes new FKs/status; unresolved partial index where context incomplete | Existing Competition/Participant semantics remain; no destructive rewrite; official rows require complete context after final phase. |
 | `result_revisions` | `id uuid PK`, `result_id uuid NOT NULL`, revision_no int, prior_snapshot jsonb NOT NULL, new_snapshot jsonb NOT NULL, reason, actor_id, created_at | Unique `(result_id,revision_no)`; FK RESTRICT; index result/time | Append-only correction history; snapshots preserve legacy JSON without loss. |
 | `result_validations` | `id uuid PK`, `result_id uuid NOT NULL`, validator_id uuid NOT NULL, decision text NOT NULL, rule_version_id uuid NULL, notes, decided_at | FK RESTRICT; unique result/decision sequence; index result/status | Validation events immutable and audited. |
 | `rankings` | `id uuid PK`, normalized scope key for nullable stage/event/category dimensions, `regulation_version_id uuid NOT NULL`, calculation_version text NOT NULL, status, published_at, metadata jsonb NULL, timestamps | Unique published normalized scope key + regulation/calculation version; do not rely on ordinary NULL-sensitive UNIQUE; indexes publication/scope | Published ranking immutable; metadata JSONB only for algorithm diagnostics. |
 | `ranking_inputs` | `id uuid PK`, `ranking_id uuid NOT NULL`, `result_id uuid NOT NULL`, `input_hash text NOT NULL`, weight numeric NULL, timestamps | FK ranking/result RESTRICT; result-only first implementation; unique `(ranking_id,result_id)` and `input_hash`; indexes ranking/result | Exact immutable input set; one result may join many rankings. No arbitrary aggregate text identity. |
-| `ranking_rows` | `id uuid PK`, `ranking_id uuid NOT NULL`, subject entry/team/participant reference, rank int NOT NULL, points numeric NULL, tie_group text NULL | Unique `(ranking_id,rank,subject)`; rank/points checks; index ranking/rank | Published rows immutable; recomputation creates new ranking version. |
-| `awards` | `id uuid PK`, ranking/result/qualification reference, recipient references, award_type text NOT NULL, points numeric NULL, `regulation_version_id uuid NOT NULL`, status, timestamps | FKs RESTRICT; unique award scope/recipient/type; points nonnegative | Separate immutable award decision; corrections supersede. |
+| `ranking_rows` | `id uuid PK`, `ranking_id uuid NOT NULL`, `competition_entry_id uuid NOT NULL`, rank int NOT NULL, points numeric NULL, tie_group text NULL | FK entry RESTRICT; unique `(ranking_id,competition_entry_id)` and `(ranking_id,rank,competition_entry_id)` as appropriate; rank/points checks; index ranking/rank | Published rows immutable; subtype determines participant/team subject; aggregate subjects deferred. |
+| `awards` | `id uuid PK`, `competition_entry_id uuid NOT NULL`, ranking/result/qualification references NULL, award_type text NOT NULL, points numeric NULL, `regulation_version_id uuid NOT NULL`, status, timestamps | FK entry RESTRICT; unique award scope/entry/type; points nonnegative | First slice constrains awards to competition entries. Wilaya/organization/delegation aggregate recipients require a future explicit AwardSubject model; no polymorphic nullable FKs. |
 
 ## 4. Entry XOR enforcement
 
@@ -82,7 +83,9 @@ PostgreSQL cannot enforce a cross-table XOR with a simple `CHECK`. The recommend
 4. Restricted write permissions prevent direct subtype manipulation outside the domain service; the trigger remains authoritative against bypasses.
 5. Partial unique indexes prevent duplicate active participant/team submissions within stage/category.
 
-The subtype tables duplicate immutable `stage_id` and `category_id` solely to make the ordinary partial unique indexes implementable without a cross-table JOIN. A deferred consistency trigger rejects any mismatch with `competition_entries`; this trigger-enforced invariant is distinct from the ordinary unique indexes.
+The subtype tables duplicate immutable `stage_id`, `category_id`, and a controlled `participation_state` solely to make ordinary partial unique indexes implementable without a cross-table JOIN. A deferred consistency trigger synchronizes the state from `competition_entries.status` and rejects mismatches; this trigger-enforced invariant is distinct from the ordinary unique indexes.
+
+Concurrency behavior: validation runs in one transaction and locks a deterministic advisory key or the relevant stage/category/subject rows before state promotion. The partial unique index is the final conflict guard. Two simultaneous submissions for the same participant/team cannot both become `VALIDATED`; one transaction succeeds and the other receives a unique/deferred-constraint conflict and must retry or remain rejected.
 
 This avoids a final design with two nullable foreign keys and supports safe multi-step creation inside one transaction.
 
@@ -110,7 +113,7 @@ The current NSSMS model has users and participants, but no generic `Person`. The
 | Governed parent references | Historical parent cannot disappear | `ON DELETE RESTRICT`, `ON UPDATE RESTRICT` |
 | Optional provenance/archive metadata | Absence is allowed, history remains | `ON DELETE SET NULL` only where explicitly approved |
 | Entry XOR | Exactly one subtype | PK/FK + entry_type check + deferred trigger |
-| Cross-table active-entry uniqueness | Stage/category/subject spans parent and subtype | Duplicated immutable scope keys + consistency trigger + subtype partial UNIQUE indexes |
+| Cross-table active-entry uniqueness | Stage/category/subject spans parent and subtype | Duplicated immutable scope/state keys + deferred consistency trigger + subtype partial UNIQUE indexes; parent status is never used as an index predicate |
 | Active regulation overlap | Same scope cannot overlap | range exclusion/activation validation |
 | Region membership | No retroactive boundary rewrite | versioned rows + unique/exclusion checks |
 | Published ranking | Immutable input set | permissions + trigger + append-only revision |
@@ -123,7 +126,7 @@ PostgreSQL ordinary `UNIQUE` permits multiple `NULL` values. For nullable progra
 
 ## 7. Index and query strategy
 
-High-volume tables are expected to be `results`, `ranking_inputs`, `ranking_rows`, `audit_events`, `competition_entries`, and possibly `team_members`. Recommended indexes include:
+High-volume tables are expected to be `results`, `ranking_inputs`, `ranking_rows`, `audit_logs`, `competition_entries`, and possibly `team_members`. Recommended indexes include:
 
 - `competition_stages (competition_id,parent_stage_id,status)` and geography/scope fields;
 - `competition_entries (stage_id,category_id,status)` plus partial active-entry indexes;
@@ -132,7 +135,7 @@ High-volume tables are expected to be `results`, `ranking_inputs`, `ranking_rows
 - `regulation_versions` scope/status plus GiST effective-period index;
 - `region_memberships` programme/wilaya/effective-period using `wilaya_id smallint`;
 - `competition_stages` geography using `wilaya_id smallint`, `daira_id integer`, and `commune_id integer`;
-- audit actor/time/object indexes.
+- `audit_logs` actor/time/object indexes.
 
 Use keyset pagination for results, entries, audit logs, and ranking rows. Avoid offset pagination on large historical tables. Query plans must include authorization-scope predicates before direct-ID lookup. Published rankings may use immutable/materialized projections, but input identity remains queryable.
 
@@ -250,6 +253,10 @@ team_entries(competition_entry_id uuid primary key references competition_entrie
 -- A deferred constraint trigger enforces entry_type XOR and duplicated-key consistency.
 -- An approved btree_gist-backed EXCLUDE (or serializable activation check) protects effective ranges.
 -- ranking_inputs contains result_id uuid not null and preserves the immutable input set.
+ranking_rows(ranking_id uuid not null, competition_entry_id uuid not null, ...)
+awards(competition_entry_id uuid not null, award_type text not null, ...)
+qualifications(source_entry_id uuid not null, destination_stage_id uuid not null, ...)
+-- Existing physical audit table is audit_logs.
 ```
 
 ## 17. Decision boundary
