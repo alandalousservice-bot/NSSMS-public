@@ -1,12 +1,18 @@
 # NSSMS — Official School Sports Competition Domain Model
 
-**Document status:** Analysis / documentation only  
-**Task:** `NSSMS-ARCH-002`  
+**Document status:** Analysis / documentation only — evidence revision pending architecture approval  
+**Task:** `NSSMS-ARCH-002-REV1`  
 **Scope:** Competition-domain analysis; no application, database, API, workflow, or existing-document changes are implied by this document.
 
 ## 0. Evidence basis and certainty rules
 
-This document was prepared from the reference material currently present in the repository:
+This revision was prepared from the NSSMS references plus the following supplied official PDFs (read in full):
+
+- `BILAN-TECHNIQUE-AGO.pdf` (2021–2022 technical balance/report; operational evidence)
+- `المنشور الوزاري 1033 رزنامة المنافسة الوطنية المدرسية للرياضات الجماعية.pdf` (Ministerial circular 1033, 20 October 2025; normative calendar/programme evidence)
+- `دليل المنافسات الوطنية للرياضة المدرسية المسيلة .pdf` (National School Sports Competition Guide 2025/2026; formally prescriptive guide evidence)
+
+The prior NSSMS reference material remains applicable:
 
 - `docs/001_Business/003_Business_Processes.md`
 - `docs/001_Business/007_Organizational_Model.md`
@@ -16,19 +22,20 @@ This document was prepared from the reference material currently present in the 
 - `docs/000_Project/007_Implementation_Readiness.md`
 - `docs/000_Project/001_Project_Charter.md`
 
-No separate ministerial competition calendar, official technical competition report, regulation book, or results bulletin was found in the repository at review time. The supplied geography archive contains wilaya/daira data only and is not a competition reference. Therefore, no legal or sport-specific rule is labelled **CONFIRMED** unless it is explicitly stated in an existing NSSMS reference. Any domain interpretation that would normally require an official calendar or technical report is labelled **PROPOSED** or **OPEN QUESTION**.
+The PDFs provide evidence for the 2025/2026 programme and, in the BILAN, observed 2021/2022 operations. They do not establish one timeless rule for every season or sport. The geography archive remains a reference-data source, not a competition rule source.
 
 The labels have the following meaning:
 
-- **CONFIRMED:** Explicitly stated in the available NSSMS reference documents. This is a repository-confirmed requirement, not a claim that a legal rule has been verified externally.
+- **NORMATIVE CONFIRMED:** Explicitly required by the ministerial circular or formally prescriptive competition guide, with source/page recorded in the Evidence Matrix.
+- **OPERATIONALLY CONFIRMED:** Explicitly evidenced as historical or operational practice in the technical report; it is not automatically a mandatory national rule.
 - **PROPOSED:** A useful modelling hypothesis that preserves the current project philosophy but requires business/regulatory approval.
 - **OPEN QUESTION:** Not sufficiently evidenced to model as a rule.
 
 ## 1. Executive conclusion
 
-The current NSSMS documentation establishes a controlled competition record that belongs to a season, has a governed lifecycle, accepts participation, records results, and remains historically accessible after closure. It also establishes institutions and participants as core concepts, and identifies national, regional/wilaya, institution, and competition-official responsibilities as logical actors.
+The supplied ministerial circular and 2025/2026 guide now normatively confirm a staged pathway from institution through commune, daira, wilaya, region, and national competition, with gender and age cohorts and both individual and team sports. The guide also prescribes sport-specific participation, qualification, formats, and technical constraints. The BILAN confirms that historical operations recorded dates, participation totals, event results, rankings, and medals/placements, but those observations remain season/report-specific.
 
-The documentation does **not** establish an official school-sports competition ladder from commune to daira to wilaya to zone to national level. It does not establish sport calendars, age bands, gender divisions, team sizes, delegation composition, ranking formulas, points, medal rules, qualification quotas, venue rules, or referee accreditation. Those details must be obtained from the ministerial calendar and technical reports before being promoted to business rules.
+The references still do not provide a single global ranking/points formula, a universal delegation/coach/head-of-delegation model, or venue/official accreditation rules for every sport. Those remain proposed or open and must be versioned by season and discipline.
 
 ## 2. Competition hierarchy and stages
 
@@ -36,12 +43,12 @@ The documentation does **not** establish an official school-sports competition l
 
 | Level or stage | Status | Analysis |
 |---|---|---|
-| Institution / school | **PROPOSED** | Natural entry level for school registration and participant/team submission. The repository confirms institution-participant relationships, but not an official institution-stage competition rule. |
-| Commune | **OPEN QUESTION** | The data model contains communes as geographic reference data, but no competition reference defines commune qualifying events or commune authority. |
-| Daira | **OPEN QUESTION** | Daira accounts and geography exist in the implementation, but no supplied reference confirms a daira competition stage or qualification rule. |
-| Wilaya | **PROPOSED** | The organizational model identifies regional/wilaya administration and regional competition administration as potential responsibilities. An official wilaya-stage format is not confirmed. |
-| Zone / region | **OPEN QUESTION** | No source defines the number, boundaries, naming, host authority, or qualification role of zones/regions. |
-| National | **PROPOSED** | The project vision and charter establish national governance and national oversight. A national final or national qualifying stage is not explicitly defined. |
+| Institution / school | **NORMATIVE CONFIRMED** | The circular and guide begin with institution-level school tournaments (Guide pp. 3–4; Circular pp. 1–2). |
+| Commune | **NORMATIVE CONFIRMED** | The guide defines a commune stage between educational institutions within the commune (Guide pp. 3–4). |
+| Daira | **NORMATIVE CONFIRMED** | The guide defines a daira stage between institutions directed from the commune stage (Guide pp. 3–4). |
+| Wilaya | **NORMATIVE CONFIRMED** | The guide defines a wilaya stage involving athletes/teams qualifying from daira (Guide pp. 3–4). |
+| Zone / region | **NORMATIVE CONFIRMED** | The guide defines region stage and an eight-region geographic distribution; regional boundaries are listed (Guide pp. 2, 4–5). |
+| National | **NORMATIVE CONFIRMED** | The circular and guide define national finals after regional stages (Circular pp. 2–3; Guide pp. 3–4). |
 
 ### 2.2 Competition lifecycle
 
@@ -55,9 +62,10 @@ The lifecycle is a system-governance state machine, not evidence of a physical c
 
 ### 2.3 Qualification between stages
 
-- **CONFIRMED:** The available references require controlled participation and results, and identify competition management as a business capability.
-- **PROPOSED:** A competition instance may produce qualifiers who progress from an earlier geographic/institution stage to a later stage.
-- **OPEN QUESTION:** Whether progression is based on winner status, ranking threshold, points, quota, invitation, age eligibility, or a ministerial selection decision.
+- **NORMATIVE CONFIRMED:** Stage progression exists from institution → commune → daira → wilaya → region → national (Circular pp. 1–3; Guide pp. 3–5).
+- **OPERATIONALLY CONFIRMED:** The 2021/2022 BILAN records staged event participation and result/ranking tables, including dates and totals (BILAN pp. 2–26).
+- **PROPOSED:** A competition instance should produce explicit qualifier records linking the source stage to the destination stage.
+- **OPEN QUESTION:** The exact progression rule is sport/category-specific; the references do not provide one universal winner/ranking/points rule.
 - **OPEN QUESTION:** Whether qualification is individual, team-based, delegation-based, or a combination.
 - **OPEN QUESTION:** Whether a participant may qualify in multiple sports or stages in the same calendar period.
 
@@ -65,23 +73,26 @@ The lifecycle is a system-governance state machine, not evidence of a physical c
 
 ### 3.1 Individual and team sports
 
-- **CONFIRMED:** The existing requirements refer to participants, participation, and results; institutions may participate in competitions.
+- **NORMATIVE CONFIRMED:** The programme includes both collective sports (football, handball, basketball 5x5/3x3, volleyball) and individual sports (athletics, swimming, table tennis, judo, karate, taekwondo, wrestling, chess, etc.) (Circular p. 1; Guide pp. 2, 7–34).
+- **NORMATIVE CONFIRMED:** The guide defines team sizes and match formats per sport, rather than one global team size (Guide pp. 20–23, 25–28, 34).
+- **OPERATIONALLY CONFIRMED:** The BILAN contains individual event results and ranked tables for athletics (BILAN pp. 12–26).
 - **PROPOSED:** Each competition event should declare a format: `INDIVIDUAL`, `TEAM`, or `MIXED`.
 - **PROPOSED:** Individual events should produce participant entries and individual rankings; team events should produce team entries and team rankings while retaining athlete membership.
-- **OPEN QUESTION:** Which sports are individual, team, relay, pair, combat, or mixed-format under the official programme.
-- **OPEN QUESTION:** Whether a team may contain reserve athletes and whether reserves may compete.
+- **OPEN QUESTION:** Whether reserve eligibility and substitution rules are globally reusable; the guide gives sport-specific arrangements.
 
 ### 3.2 Male and female categories
 
-- **OPEN QUESTION:** The repository contains no official gender category list, eligibility definition, mixed-event rule, or terminology from a ministerial reference.
+- **NORMATIVE CONFIRMED:** The programme is organised for both males and females across the educational stages and age cohorts (Circular pp. 1–3; Guide pp. 3, 6).
+- **NORMATIVE CONFIRMED:** Some competitions explicitly separate male/female entries and team tables; this separation is sport-specific, not evidence of a universal mixed-event rule (Guide pp. 8–9, 19–23).
 - **PROPOSED:** Gender/category must be an explicit property of an event or competition class, not inferred from a participant name or institution.
-- **OPEN QUESTION:** Whether the official programme uses `MALE`, `FEMALE`, `MIXED`, or another approved vocabulary, and how registration exceptions are handled.
+- **OPEN QUESTION:** The approved system vocabulary and exceptions for mixed participation.
 
 ### 3.3 Age and category concepts
 
-- **CONFIRMED:** Participant records include date of birth in the current physical model, and eligibility validation is identified as a required business capability.
+- **NORMATIVE CONFIRMED (2025/2026 baseline):** The guide maps cohorts by birth year: primary/schools 2015–2017, middle/buds 2013–2014, younger 2011–2012, and cadets 2008–2010; the guide notes that some categories may be adjusted for international specifications (Guide p. 6).
+- **NORMATIVE CONFIRMED:** Individual sports may define additional sport-specific birth-year and weight/technical classes (Guide pp. 10, 14–17).
 - **PROPOSED:** An event should reference an approved age/category definition, with an effective date or cut-off date for eligibility calculation.
-- **OPEN QUESTION:** Official age bands, school grades, birth-year cut-offs, exceptional eligibility, document evidence, and whether age is calculated on registration date, competition date, or season date.
+- **OPEN QUESTION:** Whether the 2025/2026 birth-year ranges persist in later seasons and how exceptions are approved.
 
 ## 4. Actors
 
@@ -92,11 +103,11 @@ The lifecycle is a system-governance state machine, not evidence of a physical c
 | Daira supervisor | **PROPOSED** | Local geographic coordination and review within a daira. The role exists in implementation, but competition-specific authority is not defined by the supplied business references. |
 | Educational institution/school | **CONFIRMED** as a domain participant | Maintains participant information and may participate in competitions. |
 | Athlete/participant | **CONFIRMED** as a domain participant | A participant belongs to an institution and may hold historical license records. Competition eligibility is still rule-dependent. |
-| Coach | **OPEN QUESTION** | Requested by the task, but no supplied reference defines coach authority, accreditation, or relationship to teams/delegations. |
-| Head of delegation | **OPEN QUESTION** | No supplied reference defines this role or its approval authority. |
-| Competition official/referee | **CONFIRMED** only as a logical stakeholder category | The organizational model identifies competition officials and operational/result validation responsibilities. Referee licensing, appointment, and scoring authority are open. |
-| Host/organizing wilaya | **PROPOSED** | A wilaya may host an event, subject to an approved hosting decision. The repository does not confirm host selection rules. |
-| Venue operator | **OPEN QUESTION** | Venues are requested by the task, but no reference defines venue ownership, inspection, or booking responsibility. |
+| Coach | **NORMATIVE CONFIRMED (sport-specific)** | Team/delegation tables prescribe coaches/trainers in several team sports (Guide pp. 27–28, 31, 34). This is not a universal composition rule. |
+| Head of delegation | **NORMATIVE CONFIRMED (sport/event-specific)** | The guide lists a head of delegation in the athletics delegation composition (Guide p. 27) and delegation tables; applicability varies by event. |
+| Competition official/referee | **NORMATIVE CONFIRMED (operational roles)** | The guide allocates refereeing/judging and technical/organising committees for events (Guide pp. 9, 12, 27–28); the BILAN records officials/judging totals (BILAN pp. 11–12). Accreditation rules remain open. |
+| Host/organizing wilaya | **NORMATIVE CONFIRMED (programme responsibility)** | Wilaya associations organise wilaya stages and national federation/association bodies organise listed national events (Circular pp. 1–3; Guide pp. 3–4, 13). Specific host selection is open. |
+| Venue operator | **PROPOSED** | A venue is required operationally, but ownership/inspection/booking responsibilities are not prescribed globally. |
 | Public verifier | **CONFIRMED** for license verification only | The public portal supports public license verification; public competition-result visibility is not fully specified. |
 
 ## 5. Entities
@@ -165,17 +176,30 @@ These relationships must not be treated as confirmed until the official programm
 
 ## 7. Business rules
 
-### CONFIRMED by current NSSMS references
+### NORMATIVE CONFIRMED by supplied official references
+
+1. The 2025/2026 programme is staged through institution, commune, daira, wilaya, region, and national levels.
+2. The programme includes individual and collective sports, and male/female participation across educational stages.
+3. The guide defines season-specific birth-year cohorts and sport-specific event/team constraints.
+4. Qualification is described between stages, but the exact method is dependent on the sport/category and published tables.
+5. Official stages have prescribed calendar windows for 2025/2026.
+
+### OPERATIONALLY CONFIRMED by the technical report
+
+1. The 2021/2022 BILAN records dated competition operations, participation totals, event-level results, and ranked standings.
+2. The BILAN records individual athletics performances and placements, including event measurements and rank order.
+3. The BILAN records medal/placement-style outputs and aggregate tables for the reported season.
+
+### CONFIRMED by current NSSMS references (system-domain facts)
 
 1. A competition belongs to a season.
-2. Competition status is controlled through a proposed governance lifecycle.
-3. Authorized users manage competitions and participation.
-4. Authorized officials may record results.
-5. Closed competitions remain historically accessible.
-6. Institutions are related to participants.
-7. Participant eligibility must be validated according to approved rules.
-8. Audit events must preserve actor and timestamp information and remain historically available.
-9. The system must avoid normal physical deletion of governed records.
+2. Authorized users manage competitions and participation.
+3. Authorized officials may record results.
+4. Closed competitions remain historically accessible.
+5. Institutions are related to participants.
+6. Participant eligibility must be validated according to approved rules.
+7. Audit events must preserve actor and timestamp information and remain historically available.
+8. The system must avoid normal physical deletion of governed records.
 
 ### PROPOSED for future validation
 
@@ -200,7 +224,7 @@ These relationships must not be treated as confirmed until the official programm
 
 ## 8. Competition workflow
 
-The current NSSMS workflow is **PROPOSED** and should be interpreted as a governance skeleton:
+The NSSMS workflow remains a system governance skeleton, while the physical competition progression is **NORMATIVE CONFIRMED for the 2025/2026 programme**:
 
 ```text
 Programme/calendar preparation
@@ -218,7 +242,7 @@ Programme/calendar preparation
 
 ### Workflow interpretation
 
-1. **Programme/calendar preparation — OPEN QUESTION:** No official calendar is available in the repository.
+1. **Programme/calendar preparation — NORMATIVE CONFIRMED:** The ministerial circular and guide publish the 2025/2026 calendar (Circular pp. 1–3; Guide pp. 3–4).
 2. **Draft — CONFIRMED as a current system state:** The competition lifecycle begins in `DRAFT`.
 3. **Review — CONFIRMED as a current system state:** Draft competitions can move to review.
 4. **Approval — CONFIRMED as a current system state:** Review can move to approval.
@@ -244,9 +268,10 @@ Eligible entry
 
 ### Status classification
 
-- **CONFIRMED:** The current requirements call for controlled participation and result recording.
-- **PROPOSED:** A validated result may feed a qualification decision and a next-stage entry.
-- **OPEN QUESTION:** Whether qualification is automatic, manually approved, quota-based, or invitation-based.
+- **NORMATIVE CONFIRMED:** Qualifying participants/teams move through the geographic stages; the guide explicitly names stage winners/qualifiers and national entry lists (Guide pp. 8–9, 19–20, 29–33).
+- **OPERATIONALLY CONFIRMED:** The BILAN shows result and ranking tables produced during an historical season (BILAN pp. 2–26).
+- **PROPOSED:** A validated result should feed an explicit qualification decision and next-stage entry record.
+- **OPEN QUESTION:** Whether qualification is automatic, manually approved, quota-based, or invitation-based outside the sport-specific rules stated in the guide.
 - **OPEN QUESTION:** Whether a winner progresses individually, as a team, or as part of a delegation.
 - **OPEN QUESTION:** How ties, withdrawals, substitutions, disqualifications, and appeals affect progression.
 
@@ -255,13 +280,15 @@ Eligible entry
 ### Results
 
 - **CONFIRMED:** NSSMS stores results associated with competitions; the current result payload is flexible JSON-like data.
+- **OPERATIONALLY CONFIRMED:** The BILAN records measured athletics values, places, and event-specific result tables (BILAN pp. 12–26).
 - **PROPOSED:** A result should identify the event, entry, participant/team, measured value or placing, official status, and validation history.
 - **OPEN QUESTION:** Official result units, time/distance/score precision, penalty values, disqualification codes, and record classifications.
 
 ### Individual rankings
 
+- **OPERATIONALLY CONFIRMED:** Individual event rankings and placements are produced in the BILAN (BILAN pp. 12–26).
 - **PROPOSED:** Rank individual entries within an event/category/stage using the approved result ordering.
-- **OPEN QUESTION:** Whether rank is ordinal only or includes points, records, tie-breakers, and shared places.
+- **OPEN QUESTION:** Whether rank is ordinal only or includes points, records, tie-breakers, and shared places in future seasons.
 
 ### Team rankings
 
@@ -270,7 +297,9 @@ Eligible entry
 
 ### Points and medals
 
-- **OPEN QUESTION:** No official points table or medal-allocation rule is present in the repository.
+- **NORMATIVE CONFIRMED (sport/season-specific):** The guide prescribes medals/certificates for top individual places and challenge trophies for wilayas in the road-race sections (Guide pp. 30, 33).
+- **OPERATIONALLY CONFIRMED:** The BILAN contains medal/placement and aggregate standings for the reported 2021/2022 events (BILAN pp. 2–26).
+- **OPEN QUESTION:** No universal points table or medal-allocation rule is established across all sports and seasons.
 - **PROPOSED:** Points and medals should be recorded as derived, reviewable awards linked to a validated result/ranking, not entered as unexplained free text.
 - **OPEN QUESTION:** Whether medals are awarded at every stage or only at a final stage, and whether team/individual awards coexist.
 
@@ -410,6 +439,47 @@ Each future contract would need explicit role, geographic scope, approval status
 16. Confirm public versus restricted competition data.
 17. Confirm whether licenses are required for all entries, only athletes, or selected sports.
 
-## 16. Approval boundary
+## 16. Evidence Matrix
+
+| Rule / Concept | Source document | Page or section | Evidence class | Confidence | Architectural impact |
+|---|---|---|---|---|---|
+| Institution → commune → daira → wilaya → region → national stages | Ministerial circular 1033; National Guide | Circular pp. 1–3; Guide pp. 3–4 | NORMATIVE CONFIRMED | High for 2025/2026 | Model stage sequence and qualification edges as season-versioned data. |
+| Eight geographic regions and wilaya membership | National Guide | pp. 2, 5 | NORMATIVE CONFIRMED | High for 2025/2026 | Do not hard-code region membership globally; version by programme. |
+| Both individual and collective sports | Circular; National Guide | Circular p. 1; Guide pp. 2, 7–34 | NORMATIVE CONFIRMED | High | Event format must be sport/event-specific. |
+| Male/female participation | Circular; National Guide | Circular pp. 1–3; Guide pp. 3, 6, 8–9 | NORMATIVE CONFIRMED | High | Gender/category is an explicit event dimension. |
+| Birth-year cohorts 2015–2017, 2013–2014, 2011–2012, 2008–2010 | National Guide | p. 6 | NORMATIVE CONFIRMED | High for 2025/2026 | Store effective season/category rules; do not generalize to all seasons. |
+| Sport-specific ages, weights, distances and team sizes | National Guide | pp. 10–18, 22–34 | NORMATIVE CONFIRMED | High within named sport | Technical rules require discipline/version scoping. |
+| Regional and national qualification | Ministerial circular; National Guide | Circular pp. 2–3; Guide pp. 8–9, 19–20, 29–33 | NORMATIVE CONFIRMED | High for named programme | Qualification is a first-class, source-to-destination record. |
+| National 3x3 stage: eight wilaya and eight regional selections | National Guide | pp. 8–9 | NORMATIVE CONFIRMED | High for 3x3 2026 | Do not make this quota global to every sport. |
+| Participation counts and delegation composition | National Guide | pp. 11–12, 18, 27, 31 | NORMATIVE CONFIRMED | High for named events | Model entry/delegation counts as event-specific constraints. |
+| Referees/judges and technical/organising committees | National Guide | pp. 9, 12, 27–28 | NORMATIVE CONFIRMED | Medium–high | Officials and assignments need explicit roles; accreditation remains open. |
+| Dates for staged 2025/2026 calendar | Ministerial circular; National Guide | Circular pp. 1–3; Guide pp. 3–4 | NORMATIVE CONFIRMED | High for 2025/2026 | Calendar occurrences must be season-versioned. |
+| Historical measured results and ranked standings | BILAN TECHNIQUE AGO | pp. 2–26, dated 2022 entries | OPERATIONALLY CONFIRMED | High for 2021/2022 report | Preserve raw measurements, placing, date, and report provenance. |
+| Historical aggregate/medal-style standings | BILAN TECHNIQUE AGO | pp. 2–26 | OPERATIONALLY CONFIRMED | Medium–high | Store report-specific aggregates without treating them as universal scoring. |
+| Universal points formula | All three references | Not stated globally | OPEN QUESTION | High | No global points engine should be assumed. |
+| Universal delegation, venue and official accreditation rules | All three references | Not stated globally | OPEN QUESTION | High | Require sport/season policy before implementation. |
+
+## 17. Contradictions, scope limits, and versioning
+
+### Differences between normative rules and observed practice
+
+- The 2025/2026 circular/guide prescribe a six-level competition pathway and sport-specific participation rules; the 2021/2022 BILAN is an operational report of completed activities and cannot by itself prove that the same pathway or quotas were mandatory in 2021/2022.
+- The guide prescribes current birth-year cohorts and technical formats, while the BILAN reports historical results using its own event tables. Historical values must retain their source season and technical-rule version.
+
+### Contradictions or apparent tensions
+
+- The guide's general age table (p. 6) and individual sport tables (pp. 10, 14–17) use different sport-specific cohorts/weights. This is a scope distinction, not a basis for one global age/weight rule.
+- The guide describes eight regions, while the circular describes a regional stage without restating all boundaries. The guide's named 2025/2026 distribution is authoritative for that programme only.
+- The BILAN's participation totals and ranking tables do not match the 2025/2026 guide's quotas because they describe a different season/report; no contradiction should be inferred without a same-season rule set.
+
+### Season-specific and sport-specific rules that must not be generalized
+
+- 2025/2026 calendar dates, birth-year ranges, regional grouping, quotas, team sizes, match durations, distances, weights, and medal/trophy provisions.
+- 3x3 basketball's eight-wilaya/eight-region national format, athletics event quotas, combat-sport weight classes, and football/handball/volleyball roster sizes.
+- Any BILAN 2021/2022 participation count, ranking, medal total, or event result.
+
+All such values require a season/regulation/discipline version reference in any future approved model.
+
+## 18. Approval boundary
 
 This document is an analysis artifact only. It does not approve any competition hierarchy, qualification rule, ranking formula, category, role, schema, API, or workflow. No item labelled **PROPOSED** or **OPEN QUESTION** should be implemented as an official NSSMS business rule until the relevant reference documents and authorities approve it.
