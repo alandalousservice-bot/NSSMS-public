@@ -28,6 +28,7 @@ The labels have the following meaning:
 
 - **NORMATIVE CONFIRMED:** Explicitly required by the ministerial circular or formally prescriptive competition guide, with source/page recorded in the Evidence Matrix.
 - **OPERATIONALLY CONFIRMED:** Explicitly evidenced as historical or operational practice in the technical report; it is not automatically a mandatory national rule.
+- **SYSTEM-DOMAIN CONFIRMED:** Confirmed by existing NSSMS requirements/implementation, but not claimed as a ministerial or regulatory rule.
 - **PROPOSED:** A useful modelling hypothesis that preserves the current project philosophy but requires business/regulatory approval.
 - **OPEN QUESTION:** Not sufficiently evidenced to model as a rule.
 
@@ -66,7 +67,8 @@ The lifecycle is a system-governance state machine, not evidence of a physical c
 - **OPERATIONALLY CONFIRMED:** The 2021/2022 BILAN records staged event participation and result/ranking tables, including dates and totals (BILAN pp. 2–26).
 - **PROPOSED:** A competition instance should produce explicit qualifier records linking the source stage to the destination stage.
 - **OPEN QUESTION:** The exact progression rule is sport/category-specific; the references do not provide one universal winner/ranking/points rule.
-- **OPEN QUESTION:** Whether qualification is individual, team-based, delegation-based, or a combination.
+- **NORMATIVE CONFIRMED:** Individual qualification exists for applicable individual disciplines, and team qualification exists for applicable collective disciplines (Guide pp. 8–9, 19–20, 29–33).
+- **OPEN QUESTION:** The exact qualification method, quota, tie-breaker, and approval path remain sport/category/season-specific.
 - **OPEN QUESTION:** Whether a participant may qualify in multiple sports or stages in the same calendar period.
 
 ## 3. Competition scope: sport, gender, age, and format
@@ -98,21 +100,21 @@ The lifecycle is a system-governance state machine, not evidence of a physical c
 
 | Actor | Status | Responsibility in the model |
 |---|---|---|
-| National administration | **CONFIRMED** as a logical stakeholder/responsibility | National configuration, season governance, competition oversight, policy, and reporting are identified in the organizational model. Exact legal authority remains open. |
+| National administration | **SYSTEM-DOMAIN CONFIRMED** | National configuration, season governance, competition oversight, policy, and reporting are identified in the organizational model. Exact legal authority remains open. |
 | Wilaya/association administration | **PROPOSED** | Regional competition administration, local validation, monitoring, and reporting. The documents explicitly call these potential responsibilities. |
 | Daira supervisor | **PROPOSED** | Local geographic coordination and review within a daira. The role exists in implementation, but competition-specific authority is not defined by the supplied business references. |
-| Educational institution/school | **CONFIRMED** as a domain participant | Maintains participant information and may participate in competitions. |
-| Athlete/participant | **CONFIRMED** as a domain participant | A participant belongs to an institution and may hold historical license records. Competition eligibility is still rule-dependent. |
+| Educational institution/school | **SYSTEM-DOMAIN CONFIRMED** | Maintains participant information and may participate in competitions. |
+| Athlete/participant | **SYSTEM-DOMAIN CONFIRMED** | A participant belongs to an institution and may hold historical license records. Competition eligibility is still rule-dependent. |
 | Coach | **NORMATIVE CONFIRMED (sport-specific)** | Team/delegation tables prescribe coaches/trainers in several team sports (Guide pp. 27–28, 31, 34). This is not a universal composition rule. |
 | Head of delegation | **NORMATIVE CONFIRMED (sport/event-specific)** | The guide lists a head of delegation in the athletics delegation composition (Guide p. 27) and delegation tables; applicability varies by event. |
 | Competition official/referee | **NORMATIVE CONFIRMED (operational roles)** | The guide allocates refereeing/judging and technical/organising committees for events (Guide pp. 9, 12, 27–28); the BILAN records officials/judging totals (BILAN pp. 11–12). Accreditation rules remain open. |
 | Host/organizing wilaya | **NORMATIVE CONFIRMED (programme responsibility)** | Wilaya associations organise wilaya stages and national federation/association bodies organise listed national events (Circular pp. 1–3; Guide pp. 3–4, 13). Specific host selection is open. |
 | Venue operator | **PROPOSED** | A venue is required operationally, but ownership/inspection/booking responsibilities are not prescribed globally. |
-| Public verifier | **CONFIRMED** for license verification only | The public portal supports public license verification; public competition-result visibility is not fully specified. |
+| Public verifier | **SYSTEM-DOMAIN CONFIRMED** for license verification only | The public portal supports public license verification; public competition-result visibility is not fully specified. |
 
 ## 5. Entities
 
-### 5.1 Confirmed or existing NSSMS entities
+### 5.1 SYSTEM-DOMAIN CONFIRMED or existing NSSMS entities
 
 - **Season:** Groups competitions and related historical activities.
 - **Competition:** Belongs to a season and contains participation/results.
@@ -122,29 +124,28 @@ The lifecycle is a system-governance state machine, not evidence of a physical c
 - **Result:** Records competition result data and may reference a participant.
 - **Audit event:** Records actor, time, action, and affected object.
 
-### 5.2 Competition-domain entities proposed for analysis
+### 5.2 Competition-domain concepts and representation status
 
-These are conceptual entities only; they are not implementation instructions:
+The following concepts are supported by the official evidence where marked **NORMATIVE CONFIRMED**. Representing any concept as a standalone database entity/table remains **PROPOSED** unless it is already an NSSMS entity.
 
-- **Competition programme:** The approved sport/event catalogue for a season or calendar.
-- **Competition stage:** One occurrence of an event at institution, commune, daira, wilaya, zone, or national level.
-- **Sport:** The discipline, such as athletics or a ball sport, subject to official confirmation.
-- **Event:** A contest within a sport, category, gender division, and format.
-- **Entry:** An institution, team, or athlete submission to an event.
-- **Team:** A named competition unit containing athletes and possibly reserves.
-- **Delegation:** A group representing an institution or administrative unit at a stage.
-- **Coach:** A person attached to a team/delegation if official rules confirm the role.
-- **Head of delegation:** A responsible person attached to a delegation if official rules confirm the role.
-- **Official/referee:** A person assigned to operate, judge, time, score, or validate an event.
+- **Competition programme:** **NORMATIVE CONFIRMED** concept; standalone entity/table **PROPOSED**.
+- **Competition stage:** **NORMATIVE CONFIRMED** concept; standalone entity/table **PROPOSED**.
+- **Sport/event/category:** **NORMATIVE CONFIRMED** concepts; standalone entities/tables **PROPOSED**.
+- **Entry:** **NORMATIVE CONFIRMED** participation concept; standalone entity/table **PROPOSED**.
+- **Team:** **NORMATIVE CONFIRMED** for applicable collective sports; standalone entity/table **PROPOSED**.
+- **Delegation:** **NORMATIVE CONFIRMED** in documented event compositions; standalone entity/table **PROPOSED**.
+- **Coach:** **NORMATIVE CONFIRMED** where prescribed for a named sport/event; standalone entity/table **PROPOSED**.
+- **Head of delegation:** **NORMATIVE CONFIRMED** where prescribed for a named event; standalone entity/table **PROPOSED**.
+- **Official/referee:** **NORMATIVE CONFIRMED** as an operational role; standalone entity/table **PROPOSED**.
 - **Venue:** A place hosting an event, subject to official venue requirements.
-- **Qualification:** A decision or record that allows an entry to progress to another stage.
-- **Ranking:** Ordered standings for individuals or teams under an approved ranking method.
-- **Award:** Medal, title, points, or other approved recognition.
+- **Qualification:** **NORMATIVE CONFIRMED** progression concept; standalone entity/table **PROPOSED**.
+- **Ranking:** **OPERATIONALLY CONFIRMED** in the BILAN and **NORMATIVE CONFIRMED** where the guide specifies ordered qualifiers; standalone entity/table **PROPOSED**.
+- **Award:** **NORMATIVE CONFIRMED** where medals/trophies/certificates are prescribed; standalone entity/table **PROPOSED**.
 - **Calendar occurrence:** A dated competition/stage window from an approved calendar.
 
 ## 6. Relationships
 
-### 6.1 Confirmed relationships
+### 6.1 SYSTEM-DOMAIN CONFIRMED relationships
 
 ```text
 Season 1 ──< Competition
@@ -156,9 +157,26 @@ Result ──> Participant (optional in the current schema)
 AuditEvent ──> Actor and affected business object
 ```
 
-These relationships are explicitly represented in the logical data model and/or current schema.
+These relationships are explicitly represented in the logical data model and/or current NSSMS schema. Their current representation is system-domain evidence, not a ministerial rule.
 
-### 6.2 Proposed competition relationships
+### 6.2 Officially evidenced concepts versus architectural representation
+
+The references confirm the existence of the following relationships/concepts, while a standalone table/entity representation remains **PROPOSED**:
+
+| Concept/relationship | Evidence status | Standalone entity/table representation |
+|---|---|---|
+| Competition → CompetitionStage | **NORMATIVE CONFIRMED** | **PROPOSED** |
+| CompetitionStage → Event | **NORMATIVE CONFIRMED** | **PROPOSED** |
+| Event → Entry | **NORMATIVE CONFIRMED** | **PROPOSED** |
+| Entry → Institution/Team/Participant | **NORMATIVE CONFIRMED** | **PROPOSED** |
+| Team → Participant membership | **NORMATIVE CONFIRMED** for collective sports | **PROPOSED** |
+| Delegation → members/roles | **NORMATIVE CONFIRMED** where prescribed | **PROPOSED** |
+| CompetitionStage → host/venue | **NORMATIVE CONFIRMED** as an operational need; host/venue rules are incomplete | **PROPOSED** |
+| Entry/result → Qualification → next stage | **NORMATIVE CONFIRMED** progression concept | **PROPOSED** |
+| Event → Result → Ranking | **OPERATIONALLY CONFIRMED** and **NORMATIVE CONFIRMED** where specified | **PROPOSED** |
+| Result/Ranking → Award | **NORMATIVE CONFIRMED** where medals/trophies/certificates are prescribed | **PROPOSED** |
+
+### 6.3 Proposed conceptual relationship graph
 
 ```text
 Competition ──< CompetitionStage
@@ -172,7 +190,7 @@ Entry ──< Qualification ──> NextStage
 Event ──< Result ──< Ranking/Award
 ```
 
-These relationships must not be treated as confirmed until the official programme and technical reports define the relevant objects and responsibilities.
+The graph is an architectural interpretation only. It must not be treated as a schema or implementation decision without approval.
 
 ## 7. Business rules
 
@@ -243,14 +261,14 @@ Programme/calendar preparation
 ### Workflow interpretation
 
 1. **Programme/calendar preparation — NORMATIVE CONFIRMED:** The ministerial circular and guide publish the 2025/2026 calendar (Circular pp. 1–3; Guide pp. 3–4).
-2. **Draft — CONFIRMED as a current system state:** The competition lifecycle begins in `DRAFT`.
-3. **Review — CONFIRMED as a current system state:** Draft competitions can move to review.
-4. **Approval — CONFIRMED as a current system state:** Review can move to approval.
-5. **Registration — CONFIRMED as a current system state:** Approved competitions can open registration.
+2. **Draft — SYSTEM-DOMAIN CONFIRMED:** The competition lifecycle begins in `DRAFT`.
+3. **Review — SYSTEM-DOMAIN CONFIRMED:** Draft competitions can move to review.
+4. **Approval — SYSTEM-DOMAIN CONFIRMED:** Review can move to approval.
+5. **Registration — SYSTEM-DOMAIN CONFIRMED:** Approved competitions can open registration.
 6. **Entry validation — PROPOSED:** Eligibility and duplicate-entry checks should occur before participation is finalized.
-7. **Active operation — CONFIRMED as a current system state:** Registered competitions can become active.
-8. **Results — CONFIRMED as a current system state:** Active competitions can move to results.
-9. **Close/archive — CONFIRMED as a current system state:** Results can close and later be archived while remaining historically retrievable.
+7. **Active operation — SYSTEM-DOMAIN CONFIRMED:** Registered competitions can become active.
+8. **Results — SYSTEM-DOMAIN CONFIRMED:** Active competitions can move to results.
+9. **Close/archive — SYSTEM-DOMAIN CONFIRMED:** Results can close and later be archived while remaining historically retrievable.
 
 ## 9. Qualification workflow
 
@@ -272,14 +290,14 @@ Eligible entry
 - **OPERATIONALLY CONFIRMED:** The BILAN shows result and ranking tables produced during an historical season (BILAN pp. 2–26).
 - **PROPOSED:** A validated result should feed an explicit qualification decision and next-stage entry record.
 - **OPEN QUESTION:** Whether qualification is automatic, manually approved, quota-based, or invitation-based outside the sport-specific rules stated in the guide.
-- **OPEN QUESTION:** Whether a winner progresses individually, as a team, or as part of a delegation.
-- **OPEN QUESTION:** How ties, withdrawals, substitutions, disqualifications, and appeals affect progression.
+- **NORMATIVE CONFIRMED:** Individual qualification exists for applicable individual disciplines; team qualification exists for applicable collective disciplines.
+- **OPEN QUESTION:** Exact quotas/formulas, ties, withdrawals, substitutions, disqualifications, appeals, and whether a delegation carries one or multiple qualified entries remain sport/category/season-specific.
 
 ## 10. Result and ranking model
 
 ### Results
 
-- **CONFIRMED:** NSSMS stores results associated with competitions; the current result payload is flexible JSON-like data.
+- **SYSTEM-DOMAIN CONFIRMED:** NSSMS stores results associated with competitions; the current result payload is flexible JSON-like data.
 - **OPERATIONALLY CONFIRMED:** The BILAN records measured athletics values, places, and event-specific result tables (BILAN pp. 12–26).
 - **PROPOSED:** A result should identify the event, entry, participant/team, measured value or placing, official status, and validation history.
 - **OPEN QUESTION:** Official result units, time/distance/score precision, penalty values, disqualification codes, and record classifications.
@@ -421,23 +439,17 @@ Each future contract would need explicit role, geographic scope, approval status
 
 ## 15. Open decisions
 
-1. Obtain and version the official ministerial competition calendar.
-2. Obtain technical competition reports/regulations for each relevant sport.
-3. Confirm the official geographic hierarchy and whether commune/daira/wilaya stages are mandatory or optional.
-4. Confirm whether zones/regions exist and define their boundaries.
-5. Confirm stage names, order, and qualification routes.
-6. Confirm official sport, event, gender, and age vocabularies.
-7. Confirm individual, team, relay, pair, and mixed formats.
-8. Confirm team size, reserves, substitutions, and eligibility evidence.
-9. Confirm delegation composition and the authority of coaches/heads of delegation.
-10. Confirm official/referee roles, appointment, accreditation, and result-signing authority.
-11. Confirm host wilaya selection, venue requirements, and inspection responsibilities.
-12. Confirm registration deadlines, withdrawal rules, and late-entry exceptions.
-13. Confirm result validation, appeals, corrections, and publication rules.
-14. Confirm ranking, points, medals, tie-breakers, and winner/qualifier semantics.
-15. Confirm historical record versioning when technical rules or calendar definitions change.
-16. Confirm public versus restricted competition data.
-17. Confirm whether licenses are required for all entries, only athletes, or selected sports.
+1. Define how future-season calendars, stage boundaries, cohorts, and technical regulations are versioned.
+2. Confirm exact sport/category-specific qualification formulas, quotas, and tie-breakers.
+3. Confirm replacement, withdrawal, substitution, disqualification, and late-entry rules.
+4. Confirm appeals, result corrections, validation authority, and deadlines.
+5. Confirm technical accreditation, appointment, and result-signing rules for officials/referees.
+6. Confirm host-wilaya selection, venue inspection, and facility responsibility rules.
+7. Define the canonical system vocabulary for sports, events, gender, age, stages, entries, rankings, and awards.
+8. Confirm mixed-event rules and exceptional eligibility, including international-alignment exceptions.
+9. Confirm whether delegation composition and coach/head-of-delegation authority vary by sport or stage.
+10. Confirm publication/privacy policy for participant identities, results, rankings, and historical reports.
+11. Confirm whether licenses are required for all entries, only athletes, or selected sports.
 
 ## 16. Evidence Matrix
 
@@ -479,6 +491,10 @@ Each future contract would need explicit role, geographic scope, approval status
 - Any BILAN 2021/2022 participation count, ranking, medal total, or event result.
 
 All such values require a season/regulation/discipline version reference in any future approved model.
+
+### Architectural principle
+
+**Regulations are versioned configuration, not hard-coded global business rules.** Calendar dates, birth-year cohorts, regional grouping, quotas, team sizes, weights, distances, qualification formulas, and medal/award rules must be associated with a season, programme, or technical-rule version whenever applicable. A value observed in one season or discipline must not silently become a global invariant.
 
 ## 18. Approval boundary
 
