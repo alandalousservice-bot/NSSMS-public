@@ -57,6 +57,10 @@ suite('regulation catalogue migration', () => {
       await expectDatabaseFailure(client, () => client.query("INSERT INTO categories(code,name,gender_code,regulation_version_id) VALUES('OPEN','Duplicate global','OPEN',$1)", [version.rows[0].id]));
       await client.query("INSERT INTO event_rule_bindings(event_id,category_id,stage_level_code,regulation_version_id,precedence,effective_period) VALUES($1,$2,'WILAYA',$3,10,'[2096-01-01,2096-07-01)')", [event.rows[0].id, category.rows[0].id, version.rows[0].id]);
       await expectDatabaseFailure(client, () => client.query("INSERT INTO event_rule_bindings(event_id,category_id,stage_level_code,regulation_version_id,precedence,effective_period) VALUES($1,$2,'WILAYA',$3,10,'[2096-06-01,2096-12-01)')", [event.rows[0].id, category.rows[0].id, version.rows[0].id]));
+      await client.query("INSERT INTO event_rule_bindings(event_id,category_id,stage_level_code,regulation_version_id,precedence,effective_period) VALUES($1,$2,'WILAYA',$3,10,'[2096-07-01,2097-01-01)')", [event.rows[0].id, category.rows[0].id, version.rows[0].id]);
+      const derivedVersion = await client.query("INSERT INTO regulation_versions(version_no,programme_id,effective_period) VALUES('2.0',$1,'[2096-01-01,2097-01-01)') RETURNING id", [programme.rows[0].id]);
+      const derivedCategory = await client.query("INSERT INTO categories(programme_id,code,name,gender_code,education_level,regulation_version_id) VALUES($1,'U15-M','Under 15 boys','MALE','MIDDLE',$2) RETURNING id", [programme.rows[0].id, derivedVersion.rows[0].id]);
+      await client.query("INSERT INTO event_rule_bindings(event_id,category_id,stage_level_code,regulation_version_id,precedence,effective_period) VALUES($1,$2,'WILAYA',$3,10,'[2096-01-01,2096-07-01)')", [event.rows[0].id, derivedCategory.rows[0].id, derivedVersion.rows[0].id]);
       await client.query('SELECT 1');
       await client.query('ROLLBACK');
     } finally { client.release(); }
