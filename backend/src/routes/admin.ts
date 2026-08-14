@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { pool } from '../infrastructure/db.js';
 import { assertTransition } from '../domain/lifecycle.js';
-import { AuthenticatedRequest, hasPermission, hasRole, recordAccessDenied, requireAuth } from '../http/auth-guard.js';
+import { AuthenticatedRequest, canAccessResource, hasPermission, hasRole, recordAccessDenied, requireAuth, requirePolicy, scopeCondition, scopeKind } from '../http/auth-guard.js';
 import { createVerificationReference, hashVerificationReference } from '../services/verification.js';
 import { encodePassword } from '../services/auth.js';
 
@@ -14,8 +14,46 @@ const licenseInput = z.object({ participantId: z.string().uuid(), expiresAt: z.c
 const resultInput = z.object({ participantId: z.string().uuid().optional(), resultData: z.record(z.unknown()) });
 
 async function audit(actorUserId: string, action: string, entityType: string, entityId: string, metadata: object = {}) { await pool.query('INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, result_status, metadata) VALUES ($1,$2,$3,$4,$5,$6)', [actorUserId, action, entityType, entityId, 'SUCCESS', metadata]); }
+async function filterScopedRows(request: AuthenticatedRequest, resource: 'organization'|'institution'|'participant'|'license'|'result', rows: any[]): Promise<any[]> {
+  if (scopeKind(request) === 'national') return rows;
+  const ids = rows.map((row) => row.id).filter((id): id is string => typeof id === 'string'); if (!ids.length) return [];
+  const tables: Record<typeof resource, string> = { organization: 'organizations', institution: 'educational_institutions', participant: 'participants', license: 'sports_licenses', result: 'results' };
+  const { sql, values } = scopeCondition(request, resource, 'r', 2);
+  const allowed = await pool.query(`SELECT r.id FROM ${tables[resource]} r WHERE r.id=ANY($1::uuid[]) AND ${sql}`, [ids, ...values]);
+  const allowedIds = new Set(allowed.rows.map((row) => row.id)); return rows.filter((row) => allowedIds.has(row.id));
+}
 
 export async function registerAdminRoutes(app: FastifyInstance) {
+  app.addHook('preHandler', async (request, reply) => {
+    const req = request as AuthenticatedRequest; const path = request.url.split('?')[0];
+    if (!path.startsWith('/api/v1/admin')) return;
+    if (!requireAuth(req, reply)) return;
+    if (path.endsWith('/me/permissions')) return;
+    const nationalOnly = /\/users(?:\/|$)|\/roles(?:\/|$)|\/permissions(?:\/|$)|\/audit(?:\/|$)|\/reports(?:\/|$)|\/licenses\/sync-expiry/.test(path);
+    if (nationalOnly) { if (!hasRole(req, ['SYSTEM_ADMINISTRATOR', 'NATIONAL_ADMINISTRATOR'])) { await recordAccessDenied(req, 'NATIONAL_SCOPE_DENIED'); void reply.code(403).send({ error: 'forbidden' }); } return; }
+    if (/\/seasons(?:\/|$)|\/competitions(?:\/|$)/.test(path)) { if (scopeKind(req) !== 'national') { await recordAccessDenied(req, 'NATIONAL_SCOPE_DENIED', 'GLOBAL_RESOURCE'); void reply.code(403).send({ error: 'forbidden' }); } return; }
+    let resource: 'organization'|'institution'|'participant'|'license'|'result'|undefined;
+    if (/\/organizations(?:\/|$)/.test(path)) resource = 'organization';
+    else if (/\/(?:educational_)?institutions(?:\/|$)/.test(path)) resource = 'institution';
+    else if (/\/participants(?:\/|$)/.test(path)) resource = 'participant';
+    else if (/\/licenses(?:\/|$)/.test(path)) resource = 'license';
+    else if (/\/results(?:\/|$)/.test(path)) resource = 'result';
+    if (!resource) { if (path.endsWith('/lookups')) { await requirePolicy(req, reply, { resource: 'institution' }); } return; }
+    if (!(await requirePolicy(req, reply, { resource }))) return;
+    const match = path.match(/\/([0-9a-f-]{36})(?:\/|$)/i);
+    if (match && !(await canAccessResource(req, resource, match[1]))) { await recordAccessDenied(req, 'RESOURCE_SCOPE_DENIED', resource.toUpperCase()); void reply.code(403).send({ error: 'forbidden' }); return; }
+    const body = (request.body ?? {}) as Record<string, unknown>; const relatedId = resource === 'institution' ? body.organizationId : resource === 'participant' ? body.institutionId : resource === 'license' ? body.participantId : undefined;
+    if (typeof relatedId === 'string') { const relatedResource = resource === 'institution' ? 'organization' : resource === 'participant' ? 'institution' : 'participant'; if (!(await canAccessResource(req, relatedResource, relatedId))) { await recordAccessDenied(req, 'RELATED_RESOURCE_SCOPE_DENIED', relatedResource.toUpperCase()); void reply.code(403).send({ error: 'forbidden' }); return; } }
+  });
+  app.addHook('onSend', async (request, _reply, payload) => {
+    if (request.method !== 'GET' || !request.url.startsWith('/api/v1/admin/')) return payload;
+    const req = request as AuthenticatedRequest; if (!req.auth || scopeKind(req) === 'national') return payload;
+    const path = request.url.split('?')[0]; const resource = /\/organizations(?:\/|$)/.test(path) ? 'organization' : /\/(?:educational_)?institutions(?:\/|$)/.test(path) ? 'institution' : /\/participants(?:\/|$)/.test(path) ? 'participant' : /\/licenses(?:\/|$)/.test(path) ? 'license' : /\/results(?:\/|$)/.test(path) ? 'result' : undefined;
+    const raw = Buffer.isBuffer(payload) ? payload.toString('utf8') : typeof payload === 'string' ? payload : JSON.stringify(payload); let body: any; try { body = JSON.parse(raw); } catch { return payload; }
+    if (path.endsWith('/lookups') && body?.data) { body.data.participants = await filterScopedRows(req, 'participant', body.data.participants ?? []); body.data.organizations = await filterScopedRows(req, 'organization', body.data.organizations ?? []); return JSON.stringify(body); }
+    if (!resource || !Array.isArray(body?.data)) return payload;
+    body.data = await filterScopedRows(req, resource, body.data); return JSON.stringify(body);
+  });
   app.post('/api/v1/admin/users', async (request, reply) => { const req=request as AuthenticatedRequest; if(!requireAuth(req,reply))return; if(!hasRole(req,['SYSTEM_ADMINISTRATOR']))return reply.code(403).send({error:'forbidden'}); const parsed=z.object({username:z.string().min(3).max(100),email:z.string().email().optional(),displayName:z.string().min(2).max(200),password:z.string().min(12).max(200),roleIds:z.array(z.string().uuid()).min(1).max(10)}).safeParse(request.body); if(!parsed.success)return reply.code(400).send({error:'validation_error',details:parsed.error.flatten()}); const roles=await pool.query('SELECT id FROM roles WHERE id=ANY($1::uuid[])',[parsed.data.roleIds]); if(roles.rowCount!==parsed.data.roleIds.length)return reply.code(400).send({error:'role_not_found'}); const client=await pool.connect(); try{await client.query('BEGIN'); const user=await client.query('INSERT INTO users(username,email,display_name,password_hash) VALUES($1,$2,$3,$4) RETURNING id,username,email,display_name,status',[parsed.data.username,parsed.data.email??null,parsed.data.displayName,encodePassword(parsed.data.password)]); for(const roleId of parsed.data.roleIds)await client.query('INSERT INTO user_roles(user_id,role_id) VALUES($1,$2)',[user.rows[0].id,roleId]); await client.query('COMMIT'); await audit(req.auth!.userId,'CREATE','USER',user.rows[0].id,{roleIds:parsed.data.roleIds}); return reply.code(201).send({data:user.rows[0]}); }catch(error){await client.query('ROLLBACK'); if((error as {code?:string}).code==='23505')return reply.code(409).send({error:'username_or_email_exists'}); throw error;}finally{client.release()} });
   app.post('/api/v1/admin/users/:id/status', async (request, reply) => { const req=request as AuthenticatedRequest; if(!requireAuth(req,reply))return; if(!hasRole(req,['SYSTEM_ADMINISTRATOR']))return reply.code(403).send({error:'forbidden'}); const id=z.string().uuid().safeParse((request.params as {id:string}).id); const parsed=z.object({status:z.enum(['ACTIVE','SUSPENDED','DISABLED'])}).safeParse(request.body); if(!id.success||!parsed.success)return reply.code(400).send({error:'validation_error'}); if(id.data===req.auth!.userId&&parsed.data.status!=='ACTIVE')return reply.code(409).send({error:'cannot_disable_current_user'}); const result=await pool.query('UPDATE users SET status=$1,updated_at=now() WHERE id=$2 RETURNING id,username,status',[parsed.data.status,id.data]); if(!result.rowCount)return reply.code(404).send({error:'user_not_found'}); await audit(req.auth!.userId,'UPDATE_STATUS','USER',id.data,{status:parsed.data.status}); return {data:result.rows[0]}; });
   app.get('/api/v1/admin/me/permissions', async (request, reply) => { const req=request as AuthenticatedRequest; if(!requireAuth(req,reply))return; const result=await pool.query('SELECT DISTINCT p.key FROM user_roles ur JOIN role_permissions rp ON rp.role_id=ur.role_id JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=$1 ORDER BY p.key',[req.auth!.userId]); return {data:result.rows.map((row) => row.key)}; });
