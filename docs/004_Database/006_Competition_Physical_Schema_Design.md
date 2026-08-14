@@ -28,33 +28,34 @@ The tables below are proposed physical representations. `uuid` columns are abbre
 
 | Table | Columns/types and nullability | Constraints/indexes | History/scope/audit |
 |---|---|---|---|
-| `competition_programmes` | `id uuid PK`, `season_id uuid NOT NULL`, `code text NOT NULL`, `title text NOT NULL`, `regulation_version_id uuid NOT NULL`, `status text NOT NULL`, `effective_from date NOT NULL`, `effective_to date NULL`, timestamps, `archived_at` | FK season/regulation RESTRICT; unique `(season_id, code)`; check date order/status; index `(season_id,status)` | Published rows immutable; national/programme scope; create/approve/activate/retire audited. |
-| `regulation_versions` | `id uuid PK`, `version_no text NOT NULL`, `parent_id uuid NULL`, scope columns (`season_id`, `programme_id`, `sport_id`, `event_id`, `category_id`, `stage_level text`) nullable, `effective_period daterange NOT NULL`, `status text NOT NULL`, `source_summary text`, timestamps | Self-FK RESTRICT; unique version identity; exclusion constraint concept: no overlapping `effective_period` for identical scope where status=`ACTIVE`; GiST/range index | `DRAFT→APPROVED→ACTIVE→RETIRED`; active/published immutable by trigger + restricted DB role + service checks; national/programme/discipline scope. |
+| `competition_programmes` | `id uuid PK`, `season_id uuid NOT NULL`, `code text NOT NULL`, `title text NOT NULL`, `status text NOT NULL`, `effective_from date NOT NULL`, `effective_to date NULL`, timestamps, `archived_at` | FK season RESTRICT; unique `(season_id, code)`; check date order/status; index `(season_id,status)` | Programme identity exists independently; published rows immutable; national/programme scope; lifecycle audited. |
+| `regulation_versions` | `id uuid PK`, `version_no text NOT NULL`, `parent_id uuid NULL`, `programme_id uuid NULL`, scope columns (`season_id`, `sport_id`, `event_id`, `category_id`, `stage_level text`) nullable, `effective_period daterange NOT NULL`, `status text NOT NULL`, `source_summary text`, timestamps | Self-FK and optional programme FK RESTRICT; unique version identity; active-overlap exclusion/activation validation; GiST/range index | `DRAFT→APPROVED→ACTIVE→RETIRED`; programme may have 1:N versions; no mutual NOT NULL cycle. |
 | `regulation_rules` | `id uuid PK`, `regulation_version_id uuid NOT NULL`, `rule_key text NOT NULL`, `value_type text NOT NULL`, typed scalar columns (`value_text`, `value_numeric`, `value_date`, `value_bool`), `value_jsonb jsonb NULL` only for structured formula metadata, `unit text NULL`, `precedence smallint NOT NULL` | FK RESTRICT; unique `(regulation_version_id,rule_key)`; check exactly one typed value representation; index `(rule_key,regulation_version_id)` | Only draft versions writable; rule changes create new version; audit value resolution/override. |
 | `regulation_sources` | `id uuid PK`, `regulation_version_id uuid NOT NULL`, `title text NOT NULL`, `issuer text NOT NULL`, `document_identifier text NULL`, `issued_on date NULL`, `page_section text NULL`, `sha256 text NULL`, `archive_uri text NULL`, timestamps | FK RESTRICT; unique `(regulation_version_id,sha256)` where hash present; index issuer/date | Immutable provenance; access audited; source files retained by approved archive policy. |
-| `programme_regions` | `id uuid PK`, `programme_id uuid NOT NULL`, `regulation_version_id uuid NOT NULL`, `code text NOT NULL`, `name text NOT NULL`, `effective_period daterange NOT NULL`, `status text NOT NULL`, timestamps | FK RESTRICT; unique `(programme_id,code,effective_period)`; no overlapping active identity for same code; GiST period index | Historical region identity retained; national/programme scope. |
-| `region_memberships` | `id uuid PK`, `programme_region_id uuid NOT NULL`, `wilaya_id uuid NOT NULL`, `regulation_version_id uuid NOT NULL`, `effective_period daterange NOT NULL`, timestamps | FK region/wilaya/regulation RESTRICT; unique `(programme_region_id,wilaya_id,effective_period)`; exclusion concept prevents a wilaya in two active regions in one programme period | Never retroactively rewrite static geography; boundary changes append new membership version; audit. |
+| `programme_regions` | `id uuid PK`, `programme_id uuid NOT NULL`, `regulation_version_id uuid NOT NULL`, `code text NOT NULL`, `name text NOT NULL`, `effective_period daterange NOT NULL`, `status text NOT NULL`, timestamps | FK RESTRICT; unique normalized `(programme_id,code,effective_period)`; no overlapping active identity for same code; GiST period index | Historical region identity retained; national/programme scope. |
+| `region_memberships` | `id uuid PK`, `programme_region_id uuid NOT NULL`, `wilaya_id smallint NOT NULL`, `regulation_version_id uuid NOT NULL`, `effective_period daterange NOT NULL`, timestamps | FK region/regulation RESTRICT and geography FK to `wilayas(smallint)`; normalized scope key plus exclusion/activation validation prevents a wilaya in two active regions | Never retroactively rewrite static geography; boundary changes append new membership version; audit. |
 | `sports` | `id uuid PK`, `code text NOT NULL`, `name text NOT NULL`, `sport_type text NOT NULL`, `status text NOT NULL`, timestamps | Unique code; check status/type; index status | Vocabulary changes are versioned/retired, not destructive renames. |
 | `events` | `id uuid PK`, `sport_id uuid NOT NULL`, `code text NOT NULL`, `name text NOT NULL`, `format text NOT NULL`, `measurement_type text NULL`, `status text NOT NULL`, timestamps | FK RESTRICT; unique `(sport_id,code)`; index `(sport_id,status)` | Technical meaning governed by rule binding; retire rather than mutate. |
-| `categories` | `id uuid PK`, `programme_id uuid NULL`, `code text NOT NULL`, `name text NOT NULL`, `gender_code text NOT NULL`, `education_level text NULL`, `regulation_version_id uuid NOT NULL`, timestamps | FK RESTRICT; unique `(programme_id,code,regulation_version_id)`; explicit gender/category checks | Birth-year/weight rules live in regulation rules; no global age default. |
+| `categories` | `id uuid PK`, `programme_id uuid NULL`, `code text NOT NULL`, `name text NOT NULL`, `gender_code text NOT NULL`, `education_level text NULL`, `regulation_version_id uuid NOT NULL`, timestamps | FK RESTRICT; use `NULLS NOT DISTINCT` where supported or a normalized programme-scope key before applying uniqueness; explicit gender/category checks | Birth-year/weight rules live in regulation rules; no global age default. |
 | `event_rule_bindings` | `id uuid PK`, `event_id uuid NOT NULL`, `category_id uuid NULL`, `stage_level text NULL`, `regulation_version_id uuid NOT NULL`, `precedence smallint NOT NULL`, `effective_period daterange NOT NULL`, timestamps | FK RESTRICT; unique effective binding per event/category/stage/rule scope; GiST period index | Resolution traceable; conflicting active bindings rejected before activation. |
 
 ### 3.2 Competition operations
 
 | Table | Columns/types and nullability | Constraints/indexes | History/scope/audit |
 |---|---|---|---|
-| `competition_stages` | `id uuid PK`, `competition_id uuid NOT NULL`, `parent_stage_id uuid NULL`, `programme_id uuid NOT NULL`, `regulation_version_id uuid NOT NULL`, `stage_level_code text NOT NULL`, `status text NOT NULL`, `host_wilaya_id uuid NULL`, `host_organization_id uuid NULL`, start/end dates, timestamps, `archived_at` | Self-FK RESTRICT; competition/programme/regulation FKs RESTRICT; check no self-parent/date order; indexes `(competition_id,parent_stage_id)`, `(stage_level_code,status)`, geography | Level is data-driven text/reference, not irreversible enum. Parent and host changes audited; commune/region authorization remains unresolved. |
+| `competition_stages` | `id uuid PK`, `competition_id uuid NOT NULL`, `parent_stage_id uuid NULL`, `programme_id uuid NOT NULL`, `regulation_version_id uuid NOT NULL`, `stage_level_code text NOT NULL`, `status text NOT NULL`, `host_wilaya_id smallint NULL`, `host_daira_id integer NULL`, `host_commune_id integer NULL`, `host_organization_id uuid NULL`, start/end dates, timestamps, `archived_at` | Self-FK RESTRICT; geography FKs use existing `wilayas.id smallint`, `dairas.id integer`, `communes.id integer`; check no self-parent/date order; indexes hierarchy/status/geography | Level is data-driven text/reference, not irreversible enum. Commune/region fields are data/provenance only until authorization decision. |
 | `calendar_occurrences` | `id uuid PK`, `stage_id uuid NOT NULL`, `event_id uuid NOT NULL`, `category_id uuid NULL`, `regulation_version_id uuid NOT NULL`, registration/start/end timestamps, `status text NOT NULL`, source reference, timestamps | FK RESTRICT; unique `(stage_id,event_id,category_id,start_at)`; index date/status and stage/date | Published dates immutable; corrections create a new occurrence/version. |
-| `venues` | `id uuid PK`, `code text NOT NULL`, `name text NOT NULL`, geography references, address text NULL, `status text NOT NULL`, technical_attributes jsonb NULL, timestamps | Unique code; index geography/status; JSONB only for variable facility attributes | Retire/archive, do not delete venues used historically; inspections optional and audited. |
+| `venues` | `id uuid PK`, `code text NOT NULL`, `name text NOT NULL`, `wilaya_id smallint NULL`, `daira_id integer NULL`, `commune_id integer NULL`, address text NULL, `status text NOT NULL`, technical_attributes jsonb NULL, timestamps | FKs use existing geography key types; unique code; indexes geography/status; JSONB only for variable facility attributes | Retire/archive, do not delete venues used historically; inspections optional and audited. |
 | `occurrence_venues` | `id uuid PK`, `calendar_occurrence_id uuid NOT NULL`, `venue_id uuid NOT NULL`, start/end timestamps, `role text NULL`, timestamps | FKs RESTRICT; unique `(calendar_occurrence_id,venue_id,start_at)`; exclusion concept prevents same venue overlap where required | Supports N:M stage/event/time venue allocation; assignment history retained. |
 | `competition_entries` | `id uuid PK`, `stage_id uuid NOT NULL`, `category_id uuid NOT NULL`, `institution_id uuid NULL`, `representing_organization_id uuid NULL`, `entry_type text NOT NULL`, `status text NOT NULL`, `regulation_version_id uuid NOT NULL`, eligibility_data jsonb NULL, timestamps, `archived_at` | FKs RESTRICT; check institution/organization ownership; unique active subject/category/stage through subtype constraints; indexes stage/status/category/scope | Common governed record; JSONB only for submitted evidence metadata, not identity or qualification. |
-| `individual_entries` | `competition_entry_id uuid PK/FK`, `participant_id uuid NOT NULL`, timestamps | FK entry/participant RESTRICT; unique `(stage,category,participant)` via entry join/index; entry_type check enforced by trigger | Exactly one subtype; subtype row immutable after validation. |
-| `team_entries` | `competition_entry_id uuid PK/FK`, `team_id uuid NOT NULL`, timestamps | FK entry/team RESTRICT; unique `(stage,category,team)`; entry_type check | Exactly one subtype; team identity/history retained. |
+| `individual_entries` | `competition_entry_id uuid PK/FK`, `participant_id uuid NOT NULL`, duplicated immutable `stage_id uuid NOT NULL`, `category_id uuid NOT NULL`, timestamps | FKs RESTRICT; ordinary partial unique index `(stage_id,category_id,participant_id)` for active rows; deferred consistency trigger verifies duplicated keys equal parent entry; entry_type check enforced by trigger | Exactly one subtype; subtype row immutable after validation. |
+| `team_entries` | `competition_entry_id uuid PK/FK`, `team_id uuid NOT NULL`, duplicated immutable `stage_id uuid NOT NULL`, `category_id uuid NOT NULL`, timestamps | FKs RESTRICT; ordinary partial unique index `(stage_id,category_id,team_id)` for active rows; deferred consistency trigger verifies duplicated keys equal parent entry; entry_type check | Exactly one subtype; team identity/history retained. |
 | `teams` | `id uuid PK`, `institution_id uuid NULL`, `representing_organization_id uuid NULL`, `name text NOT NULL`, `category_id uuid NOT NULL`, `stage_id uuid NULL`, `status text NOT NULL`, timestamps | Ownership check; unique name within stage/category/owner; indexes scope/status | Team lifecycle and membership changes audited; no hard delete after entry/result. |
 | `team_members` | `id uuid PK`, `team_id uuid NOT NULL`, `participant_id uuid NOT NULL`, `role text NOT NULL`, valid_from/to timestamptz, timestamps | FK RESTRICT; unique active `(team,participant)`; check interval/role | Substitution/reserve history append-only; role values resolved from regulation. |
-| `delegations` | `id uuid PK`, `stage_id uuid NOT NULL`, representing institution/organization, `head_participant_id uuid NULL`, `status text NOT NULL`, timestamps | FKs RESTRICT; unique delegation per stage/representing owner; indexes stage/scope | Composition governed by sport/stage rules; audit approval/closure. |
-| `delegation_members` | `id uuid PK`, `delegation_id uuid NOT NULL`, `person_id uuid NOT NULL`, `role text NOT NULL`, valid interval, timestamps | FK RESTRICT; unique active person/role/delegation; interval checks | Coaches/heads/officials retained historically; scope follows delegation stage. |
-| `competition_officials` | `id uuid PK`, `person_id uuid NOT NULL`, `official_type text NOT NULL`, accreditation_reference text NULL, valid period, status, timestamps | Unique person/type/valid period; indexes type/status | Accreditation evidence and retirement audited. |
+| `delegations` | `id uuid PK`, `stage_id uuid NOT NULL`, representing institution/organization, `head_person_id uuid NULL`, `status text NOT NULL`, timestamps | FKs RESTRICT; unique delegation per stage/representing owner; indexes stage/scope | Composition governed by sport/stage rules; audit approval/closure. |
+| `delegation_members` | `id uuid PK`, `delegation_id uuid NOT NULL`, `person_id uuid NOT NULL`, `role text NOT NULL`, valid interval, timestamps | FK to proposed `people` RESTRICT; unique active person/role/delegation; interval checks | Coaches/heads/officials retained historically; scope follows delegation stage. |
+| `people` (proposed) | `id uuid PK`, legal/display identity, contact/identity attributes, optional `user_id uuid NULL`, optional `participant_id uuid NULL`, status, timestamps | Optional FKs to existing user/participant tables; unique external identity where available; no login required | Separates operational person from athlete and account. Retained/archived and audited. |
+| `competition_officials` | `id uuid PK`, `person_id uuid NOT NULL`, `official_type text NOT NULL`, accreditation_reference text NULL, valid period, status, timestamps | FK to `people` RESTRICT; unique person/type/valid period; indexes type/status | Accreditation evidence and retirement audited. |
 | `official_assignments` | `id uuid PK`, `official_id uuid NOT NULL`, `stage_id uuid NOT NULL`, `occurrence_id uuid NULL`, function text NOT NULL, assigned interval, status, timestamps | FKs RESTRICT; uniqueness for official/function/time; index stage/occurrence/status | Assignment and sign-off audit; no unauthorized result validation. |
 | `stage_venues` | Optional stage-level association when a stage uses venues independent of event occurrences: `id uuid PK`, `stage_id uuid NOT NULL`, `venue_id uuid NOT NULL`, interval, role | FKs RESTRICT; unique stage/venue/interval; overlap checks where operationally required | Use alongside occurrence venues only when stage-wide hosting data is needed. |
 
@@ -66,8 +67,8 @@ The tables below are proposed physical representations. `uuid` columns are abbre
 | `results` (evolution) | Preserve existing columns/PK and `result_data jsonb`; add nullable transition FKs `stage_id`, `occurrence_id`, `entry_id`, `event_id`, `category_id`, `regulation_version_id`, `provenance_source_id`; status, `validated_at`, timestamps | Existing FKs preserved; new FKs initially nullable/restrict; indexes new FKs/status; unresolved partial index where context incomplete | Existing Competition/Participant semantics remain; no destructive rewrite; official rows require complete context after final phase. |
 | `result_revisions` | `id uuid PK`, `result_id uuid NOT NULL`, revision_no int, prior_snapshot jsonb NOT NULL, new_snapshot jsonb NOT NULL, reason, actor_id, created_at | Unique `(result_id,revision_no)`; FK RESTRICT; index result/time | Append-only correction history; snapshots preserve legacy JSON without loss. |
 | `result_validations` | `id uuid PK`, `result_id uuid NOT NULL`, validator_id uuid NOT NULL, decision text NOT NULL, rule_version_id uuid NULL, notes, decided_at | FK RESTRICT; unique result/decision sequence; index result/status | Validation events immutable and audited. |
-| `rankings` | `id uuid PK`, stage/event/category scope, `regulation_version_id uuid NOT NULL`, calculation_version text NOT NULL, status, published_at, metadata jsonb NULL, timestamps | Unique published `(stage,event,category,regulation_version,calculation_version)`; indexes publication/scope | Published ranking immutable; metadata JSONB only for algorithm diagnostics. |
-| `ranking_inputs` | `id uuid PK`, `ranking_id uuid NOT NULL`, `result_id uuid NULL`, aggregate_source text NULL, input_hash text NOT NULL, weight numeric NULL, timestamps | Check result XOR approved aggregate source; unique ranking/input_hash; indexes ranking/result | Exact immutable input set; one result may join many rankings. |
+| `rankings` | `id uuid PK`, normalized scope key for nullable stage/event/category dimensions, `regulation_version_id uuid NOT NULL`, calculation_version text NOT NULL, status, published_at, metadata jsonb NULL, timestamps | Unique published normalized scope key + regulation/calculation version; do not rely on ordinary NULL-sensitive UNIQUE; indexes publication/scope | Published ranking immutable; metadata JSONB only for algorithm diagnostics. |
+| `ranking_inputs` | `id uuid PK`, `ranking_id uuid NOT NULL`, `result_id uuid NOT NULL`, `input_hash text NOT NULL`, weight numeric NULL, timestamps | FK ranking/result RESTRICT; result-only first implementation; unique `(ranking_id,result_id)` and `input_hash`; indexes ranking/result | Exact immutable input set; one result may join many rankings. No arbitrary aggregate text identity. |
 | `ranking_rows` | `id uuid PK`, `ranking_id uuid NOT NULL`, subject entry/team/participant reference, rank int NOT NULL, points numeric NULL, tie_group text NULL | Unique `(ranking_id,rank,subject)`; rank/points checks; index ranking/rank | Published rows immutable; recomputation creates new ranking version. |
 | `awards` | `id uuid PK`, ranking/result/qualification reference, recipient references, award_type text NOT NULL, points numeric NULL, `regulation_version_id uuid NOT NULL`, status, timestamps | FKs RESTRICT; unique award scope/recipient/type; points nonnegative | Separate immutable award decision; corrections supersede. |
 
@@ -81,17 +82,26 @@ PostgreSQL cannot enforce a cross-table XOR with a simple `CHECK`. The recommend
 4. Restricted write permissions prevent direct subtype manipulation outside the domain service; the trigger remains authoritative against bypasses.
 5. Partial unique indexes prevent duplicate active participant/team submissions within stage/category.
 
+The subtype tables duplicate immutable `stage_id` and `category_id` solely to make the ordinary partial unique indexes implementable without a cross-table JOIN. A deferred consistency trigger rejects any mismatch with `competition_entries`; this trigger-enforced invariant is distinct from the ordinary unique indexes.
+
 This avoids a final design with two nullable foreign keys and supports safe multi-step creation inside one transaction.
 
 ## 5. Regulation immutability and effective-date overlap
 
-Use three layers:
+Use four layers:
 
-- database permissions deny `UPDATE/DELETE` on `APPROVED`, `ACTIVE`, and `RETIRED` versions;
-- a trigger rejects changes to immutable columns after approval and records attempted mutations;
-- application/service authorization requires a new version for every change.
+- application/service authorization requires a new version for every change;
+- table privileges deny uncontrolled direct writes to regulation tables;
+- a `BEFORE UPDATE OR DELETE` trigger checks the row status and rejects mutation when status is `APPROVED`, `ACTIVE`, or `RETIRED`, recording denied attempts where feasible;
+- optional RLS/security-definer controls may be evaluated later, but are not assumed by this design.
 
-Represent effective scope as `daterange` and use a PostgreSQL exclusion-constraint concept over normalized scope keys plus the range to prevent overlapping `ACTIVE` versions at identical precedence. Where PostgreSQL exclusion cannot cover nullable scope dimensions cleanly, normalize scope to a deterministic key or validate activation in a serializable transaction.
+The database trigger remains authoritative even if application authorization is bypassed. Published rows are never silently mutated or hard-deleted.
+
+Represent effective scope as `daterange` and use a PostgreSQL `EXCLUDE` constraint over a deterministic, non-null normalized scope key plus the range to prevent overlapping `ACTIVE` versions at identical precedence. If scalar equality operators are needed in the exclusion constraint, the deployment must enable and approve `btree_gist`; otherwise activation must run a serializable transaction that locks the normalized scope and validates overlap before changing status. Nullable dimensions are normalized to explicit sentinel values or a canonical scope key before exclusion; ordinary NULL semantics are not relied upon.
+
+### Operational person identity
+
+The current NSSMS model has users and participants, but no generic `Person`. The physical design therefore proposes `people` as an optional new table, not yet implemented. `Participant` remains the athlete identity; `User` remains the login/account identity; `Person` represents an operational human such as coach, referee, or head of delegation. A person may optionally relate to a user account or participant, but neither relationship is required. Coaches/referees are not forced to log in and are not modelled as participants unless they are actually athletes.
 
 ## 6. Constraint and referential-action matrix
 
@@ -100,11 +110,16 @@ Represent effective scope as `daterange` and use a PostgreSQL exclusion-constrai
 | Governed parent references | Historical parent cannot disappear | `ON DELETE RESTRICT`, `ON UPDATE RESTRICT` |
 | Optional provenance/archive metadata | Absence is allowed, history remains | `ON DELETE SET NULL` only where explicitly approved |
 | Entry XOR | Exactly one subtype | PK/FK + entry_type check + deferred trigger |
+| Cross-table active-entry uniqueness | Stage/category/subject spans parent and subtype | Duplicated immutable scope keys + consistency trigger + subtype partial UNIQUE indexes |
 | Active regulation overlap | Same scope cannot overlap | range exclusion/activation validation |
 | Region membership | No retroactive boundary rewrite | versioned rows + unique/exclusion checks |
 | Published ranking | Immutable input set | permissions + trigger + append-only revision |
 | Result corrections | Preserve official history | result revisions/validations, no destructive update |
 | Hard delete | Not allowed for governed records | archive/status only |
+
+### NULL-sensitive uniqueness
+
+PostgreSQL ordinary `UNIQUE` permits multiple `NULL` values. For nullable programme/category/event/stage dimensions, the design uses one of these explicit strategies per table: `UNIQUE NULLS NOT DISTINCT` on supported PostgreSQL versions; a canonical non-null normalized scope key; or separate partial unique indexes for each nullability case. No uniqueness claim depends on `NULL = NULL`.
 
 ## 7. Index and query strategy
 
@@ -115,7 +130,8 @@ High-volume tables are expected to be `results`, `ranking_inputs`, `ranking_rows
 - `results (stage_id,event_id,category_id,status,created_at)` and unresolved-context partial index;
 - `ranking_inputs (ranking_id,result_id)` and `ranking_rows (ranking_id,rank)`;
 - `regulation_versions` scope/status plus GiST effective-period index;
-- `region_memberships` programme/wilaya/effective-period;
+- `region_memberships` programme/wilaya/effective-period using `wilaya_id smallint`;
+- `competition_stages` geography using `wilaya_id smallint`, `daira_id integer`, and `commune_id integer`;
 - audit actor/time/object indexes.
 
 Use keyset pagination for results, entries, audit logs, and ranking rows. Avoid offset pagination on large historical tables. Query plans must include authorization-scope predicates before direct-ID lookup. Published rankings may use immutable/materialized projections, but input identity remains queryable.
@@ -225,12 +241,15 @@ The following is intentionally illustrative and incomplete; it is not a migratio
 
 ```sql
 -- Conceptual only:
+competition_programmes(id uuid primary key, season_id uuid not null, ...)
+regulation_versions(id uuid primary key, programme_id uuid null, effective_period daterange not null, ...)
+competition_stages(host_wilaya_id smallint, host_daira_id integer, host_commune_id integer, ...)
 competition_entries(id uuid primary key, entry_type text not null, ...)
-individual_entries(competition_entry_id uuid primary key references competition_entries, participant_id uuid not null, ...)
-team_entries(team_entry_id uuid primary key references competition_entries, team_id uuid not null, ...)
--- A deferred constraint trigger enforces entry_type XOR subtype row.
--- regulation_versions.effective_period uses a PostgreSQL range concept.
--- ranking_inputs preserves the immutable result-input set.
+individual_entries(competition_entry_id uuid primary key references competition_entries, participant_id uuid not null, stage_id uuid not null, category_id uuid not null, ...)
+team_entries(competition_entry_id uuid primary key references competition_entries, team_id uuid not null, stage_id uuid not null, category_id uuid not null, ...)
+-- A deferred constraint trigger enforces entry_type XOR and duplicated-key consistency.
+-- An approved btree_gist-backed EXCLUDE (or serializable activation check) protects effective ranges.
+-- ranking_inputs contains result_id uuid not null and preserves the immutable input set.
 ```
 
 ## 17. Decision boundary
