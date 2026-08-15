@@ -79,6 +79,7 @@ export async function canAccessCompetitionResource(request:AuthenticatedRequest,
     competition_team:'teams t join educational_institutions i on i.id=t.institution_id',
     competition_stage:'competition_stages s join competition_entries e on e.stage_id=s.id join educational_institutions i on i.id=e.institution_id'
   }; const alias=resource==='competition_entry'?'e':resource==='competition_result'?'r':resource==='qualification'?'q':resource==='ranking'?'r':resource==='award'?'a':resource==='competition_stage'?'s':'t';
+  if(scopeKind(request)==='national')return competitionResourceExists(resource,id);
   const row=await pool.query(`select 1 from ${source[resource]} where ${alias}.id=$1 and ${condition.sql} limit 1`,[id,...condition.values]);return Boolean(row.rowCount);
 }
 
