@@ -10,13 +10,27 @@ import { registerCompetitionRoutes } from './routes/competition.js';
 import { config } from './config.js';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 export function buildApp() {
-  const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' }, requestIdHeader: 'x-request-id' });
-  app.setErrorHandler((error, _request, reply) => { const err = error as { statusCode?: number; message?: string }; app.log.error(error); if (err.statusCode && err.statusCode < 500) return reply.code(err.statusCode).send({ error: 'request_error', message: err.message }); return reply.code(500).send({ error: 'internal_server_error' }); });
-  app.register(helmet);
-  app.register(cors, { origin: config.frontendOrigin });
-  app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
+  const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' }, genReqId: () => randomUUID(), requestTimeout: config.requestTimeoutMs, bodyLimit: config.bodyLimit, trustProxy: config.trustProxy });
+  app.addHook('onRequest', async (request, reply) => { reply.header('x-request-id', request.id); if (request.headers.authorization) reply.header('cache-control', 'private, no-store'); });
+  const errorBody = (requestId: string, code: string, message: string) => ({ error: { code, message, request_id: requestId } });
+  app.setErrorHandler((error, request, reply) => { const err = error as { statusCode?: number; code?: string; name?: string }; const status = err.statusCode && err.statusCode < 500 ? err.statusCode : 500; const code = status === 429 ? 'RATE_LIMITED' : status === 401 ? 'UNAUTHORIZED' : status === 403 ? 'FORBIDDEN' : status === 404 ? 'NOT_FOUND' : status === 400 || status === 413 || status === 422 ? 'VALIDATION_ERROR' : 'INTERNAL_ERROR'; request.log.error({ request_id: request.id, error_code: code, error_category: err.code ?? err.name ?? 'unhandled' }, 'request failed'); return reply.code(status).send(errorBody(request.id, code, code === 'INTERNAL_ERROR' ? 'An internal error occurred' : 'The request could not be completed')); });
+  app.setNotFoundHandler((request, reply) => reply.code(404).send(errorBody(request.id, 'NOT_FOUND', 'Route not found')));
+  app.register(helmet, { contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } }, referrerPolicy: { policy: 'no-referrer' } });
+  app.register(cors, { origin: (origin, callback) => callback(null, !origin || config.corsOrigins.includes(origin)), credentials: true, methods: ['GET','POST','PATCH','PUT','DELETE','OPTIONS'], allowedHeaders: ['content-type','authorization','x-request-id'] });
+  app.register(rateLimit, { max: config.rateLimitMax, timeWindow: config.rateLimitWindow, errorResponseBuilder: (request, context) => ({ statusCode: context.statusCode, error: { code: 'RATE_LIMITED', message: 'Too many requests', request_id: request.id } }) });
+  const routeLimiters = new WeakMap<object, ReturnType<typeof app.rateLimit>>();
+  app.addHook('onRequest', async (request, reply) => {
+    const configuredLimit = request.routeOptions.config.rateLimit;
+    let limiter = app.rateLimit();
+    if (configuredLimit && typeof configuredLimit === 'object') {
+      limiter = routeLimiters.get(configuredLimit) ?? app.rateLimit(configuredLimit);
+      routeLimiters.set(configuredLimit, limiter);
+    }
+    await limiter.call(app, request, reply);
+  });
   app.get('/health', async () => ({ status: 'ok', service: 'nssms-api' }));
   app.get('/api/v1', async () => ({ name:'NSSMS API', version:'1.0.0', status:'active' }));
   app.get('/openapi.json', async (_request, reply) => { reply.type('application/json'); return JSON.parse(await readFile(resolve(process.cwd(),'openapi.json'),'utf8')); });
