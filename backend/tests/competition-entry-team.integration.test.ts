@@ -114,6 +114,7 @@ suite('competition entry and team foundation migration', () => {
         [fixture.institutionA, fixture.category, fixture.stage],
       );
       const membership = await client.query("INSERT INTO team_members(team_id,participant_id,role) VALUES($1,$2,'ATHLETE') RETURNING id", [teamA.rows[0].id, fixture.participantA]);
+      await client.query("UPDATE team_members SET role='RESERVE' WHERE id=$1", [membership.rows[0].id]);
 
       const individual = await client.query(
         "INSERT INTO competition_entries(stage_id,category_id,institution_id,entry_type,regulation_version_id,eligibility_data) VALUES($1,$2,$3,'INDIVIDUAL',$4,'{}') RETURNING id",
@@ -140,6 +141,13 @@ suite('competition entry and team foundation migration', () => {
       await client.query("UPDATE competition_entries SET status='VALIDATED' WHERE id=$1", [individual.rows[0].id]);
       await expectDatabaseFailure(client, () => client.query("UPDATE competition_entries SET category_id=$1 WHERE id=$2", [fixture.otherCategory, individual.rows[0].id]), /immutable/);
       await expectDatabaseFailure(client, () => client.query("UPDATE individual_entries SET participant_id=$1 WHERE competition_entry_id=$2", [fixture.participantB, individual.rows[0].id]), /immutable/);
+      const validatedIndividual = await client.query('SELECT archived_at FROM competition_entries WHERE id=$1', [individual.rows[0].id]);
+      expect(validatedIndividual.rows[0].archived_at).toBeNull();
+      await expectDatabaseFailure(client, () => client.query("UPDATE competition_entries SET status='ARCHIVED', archived_at='2099-01-01T00:00:00Z' WHERE id=$1", [individual.rows[0].id]), /database-controlled/);
+      await expectDatabaseFailure(client, () => client.query("UPDATE competition_entries SET status='ARCHIVED', category_id=$1 WHERE id=$2", [fixture.otherCategory, individual.rows[0].id]), /only transition/);
+      const archivedIndividual = await client.query("UPDATE competition_entries SET status='ARCHIVED' WHERE id=$1 RETURNING archived_at", [individual.rows[0].id]);
+      expect(archivedIndividual.rows[0].archived_at).toBeTruthy();
+      await expectDatabaseFailure(client, () => client.query("UPDATE competition_entries SET archived_at='2099-01-01T00:00:00Z' WHERE id=$1", [individual.rows[0].id]), /immutable/);
       await expectDatabaseFailure(client, () => client.query('DELETE FROM individual_entries WHERE competition_entry_id=$1', [individual.rows[0].id]), /cannot be deleted/);
       await expectDatabaseFailure(client, () => client.query('DELETE FROM competition_entries WHERE id=$1', [individual.rows[0].id]), /cannot be deleted/);
 
@@ -153,7 +161,17 @@ suite('competition entry and team foundation migration', () => {
       );
       await client.query("UPDATE competition_entries SET status='SUBMITTED' WHERE id=$1", [teamEntry.rows[0].id]);
       await client.query("UPDATE competition_entries SET status='VALIDATED' WHERE id=$1", [teamEntry.rows[0].id]);
+      await expectDatabaseFailure(client, () => client.query("UPDATE team_members SET participant_id=$1 WHERE id=$2", [fixture.participantB, membership.rows[0].id]), /immutable/);
+      await expectDatabaseFailure(client, () => client.query("UPDATE team_members SET team_id=$1 WHERE id=$2", [teamB.rows[0].id, membership.rows[0].id]), /immutable/);
+      await expectDatabaseFailure(client, () => client.query("UPDATE team_members SET role='ATHLETE' WHERE id=$1", [membership.rows[0].id]), /immutable/);
+      await expectDatabaseFailure(client, () => client.query("UPDATE team_members SET valid_from='2092-01-01T00:00:00Z' WHERE id=$1", [membership.rows[0].id]), /immutable/);
+      await expectDatabaseFailure(client, () => client.query("UPDATE team_members SET valid_to='2092-02-01T00:00:00Z' WHERE id=$1", [membership.rows[0].id]), /immutable/);
       await expectDatabaseFailure(client, () => client.query('DELETE FROM team_members WHERE id=$1', [membership.rows[0].id]), /cannot be deleted/);
+      await client.query("UPDATE competition_entries SET status='WITHDRAWN' WHERE id=$1", [teamEntry.rows[0].id]);
+      const withdrawnTeam = await client.query('SELECT archived_at FROM competition_entries WHERE id=$1', [teamEntry.rows[0].id]);
+      expect(withdrawnTeam.rows[0].archived_at).toBeNull();
+      const archivedTeam = await client.query("UPDATE competition_entries SET status='ARCHIVED' WHERE id=$1 RETURNING archived_at", [teamEntry.rows[0].id]);
+      expect(archivedTeam.rows[0].archived_at).toBeTruthy();
 
       const noSubtype = await client.query(
         "INSERT INTO competition_entries(stage_id,category_id,institution_id,entry_type,regulation_version_id) VALUES($1,$2,$3,'INDIVIDUAL',$4) RETURNING id",
