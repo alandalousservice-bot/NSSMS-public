@@ -82,3 +82,5 @@ export async function canAccessCompetitionResource(request:AuthenticatedRequest,
   const row=await pool.query(`select 1 from ${source[resource]} where ${alias}.id=$1 and ${condition.sql} limit 1`,[id,...condition.values]);return Boolean(row.rowCount);
 }
 
+
+export async function competitionResourceExists(resource:CompetitionScopedResource,id:string):Promise<boolean>{const source:Record<CompetitionScopedResource,string>={competition_entry:'competition_entries e',competition_result:'results r',qualification:'qualifications q',ranking:'rankings r',award:'awards a',competition_team:'teams t',competition_stage:'competition_stages s'},alias=resource==='competition_entry'?'e':resource==='competition_result'?'r':resource==='qualification'?'q':resource==='ranking'?'r':resource==='award'?'a':resource==='competition_stage'?'s':'t';return Boolean((await pool.query(`select 1 from ${source[resource]} where ${alias}.id=$1 limit 1`,[id])).rowCount)}

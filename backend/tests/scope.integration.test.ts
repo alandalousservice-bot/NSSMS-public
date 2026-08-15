@@ -50,6 +50,17 @@ suite('centralized authorization scope', () => {
     expect(denied.statusCode).toBe(403);
   });
 
+  it('distinguishes a missing governed Entry from an out-of-scope Entry without leaking internals', async () => {
+    const institution = await login('institution.001.demo', 'NssmsInst-001-2026!');
+    const me = await app!.inject({ method: 'GET', url: '/api/v1/auth/me', headers: institution });
+    const foreign = (await pool!.query('select id from competition_entries where institution_id<>$1 limit 1', [me.json().user.institutionId])).rows[0].id;
+    for (const [entryId, status, error] of [['00000000-0000-0000-0000-000000000000', 404, 'not_found'], [foreign, 403, 'forbidden']] as const) {
+      const response = await app!.inject({ method: 'GET', url: `/api/v1/admin/competition-entries/${entryId}`, headers: institution });
+      expect(response.statusCode).toBe(status); expect(response.json()).toEqual({ error });
+      expect(response.body).not.toMatch(/postgres|sql|constraint|trigger|plpgsql|stack|driver|detail/i);
+    }
+  });
+
   it('prevents cross-organization participant reads and direct writes', async () => {
     const national = await login('demo.admin', 'NssmsDemoAdmin-2026!');
     const created = await app!.inject({ method: 'POST', url: '/api/v1/admin/participants', headers: national, payload: { institutionId: institutionB, givenName: 'Scope', familyName: `Isolation-${Date.now()}` } });
