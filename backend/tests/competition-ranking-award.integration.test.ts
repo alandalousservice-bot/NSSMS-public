@@ -1,0 +1,3 @@
+import { afterAll,beforeAll,describe,expect,it } from 'vitest'; import pg from 'pg';
+const pool=process.env.DATABASE_URL?new pg.Pool({connectionString:process.env.DATABASE_URL}):null; const suite=pool?describe:describe.skip;
+suite('competition ranking award foundation',()=>{beforeAll(async()=>{await pool!.query('SELECT 1')});afterAll(async()=>{await pool?.end()});it('creates governed snapshot tables',async()=>{const r=await pool!.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name=ANY($1::text[])",[['rankings','ranking_inputs','ranking_rows','awards']]);expect(r.rows.map(x=>x.table_name).sort()).toEqual(['awards','ranking_inputs','ranking_rows','rankings'])})});
