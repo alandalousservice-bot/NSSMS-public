@@ -66,15 +66,23 @@ suite('competition operational foundation migration', () => {
       await expectDatabaseFailure(client, () => client.query("INSERT INTO competition_stages(competition_id,programme_id,regulation_version_id,stage_level_code,host_wilaya_id,host_daira_id) VALUES($1,$2,$3,'DAIRA',57,999001)", [competition.rows[0].id, programme.rows[0].id, version.rows[0].id]), /daira must belong/);
       await expectDatabaseFailure(client, () => client.query("INSERT INTO competition_stages(competition_id,programme_id,regulation_version_id,stage_level_code,host_wilaya_id,host_daira_id,host_commune_id) VALUES($1,$2,$3,'COMMUNE',58,999003,999001)", [competition.rows[0].id, programme.rows[0].id, version.rows[0].id]), /commune must belong/);
       await client.query("UPDATE competition_stages SET stage_level_code='WILAYA-UPDATED' WHERE id=$1", [root.rows[0].id]);
+      await client.query("UPDATE competition_stages SET start_date='2094-02-02' WHERE id=$1", [root.rows[0].id]);
       await client.query("UPDATE competition_stages SET status='SCHEDULED' WHERE id=$1", [root.rows[0].id]);
+      await client.query("UPDATE competition_stages SET end_date='2094-02-04' WHERE id=$1", [root.rows[0].id]);
       await client.query("UPDATE competition_stages SET status='ACTIVE' WHERE id=$1", [root.rows[0].id]);
       await expectDatabaseFailure(client, () => client.query("UPDATE competition_stages SET status='DRAFT' WHERE id=$1", [root.rows[0].id]), /forward-only/);
       await expectDatabaseFailure(client, () => client.query("UPDATE competition_stages SET stage_level_code='TAMPERED' WHERE id=$1", [root.rows[0].id]), /immutable/);
+      await expectDatabaseFailure(client, () => client.query("UPDATE competition_stages SET start_date='2094-02-03' WHERE id=$1", [root.rows[0].id]), /immutable/);
+      await expectDatabaseFailure(client, () => client.query("UPDATE competition_stages SET end_date='2094-02-05' WHERE id=$1", [root.rows[0].id]), /immutable/);
       await client.query("UPDATE competition_stages SET status='RESULTS' WHERE id=$1", [root.rows[0].id]);
+      await expectDatabaseFailure(client, () => client.query("UPDATE competition_stages SET start_date='2094-02-03' WHERE id=$1", [root.rows[0].id]), /immutable/);
+      await expectDatabaseFailure(client, () => client.query("UPDATE competition_stages SET end_date='2094-02-05' WHERE id=$1", [root.rows[0].id]), /immutable/);
       await client.query("UPDATE competition_stages SET status='CLOSED' WHERE id=$1", [root.rows[0].id]);
       await expectDatabaseFailure(client, () => client.query("UPDATE competition_stages SET status='ARCHIVED', stage_level_code='TAMPERED' WHERE id=$1", [root.rows[0].id]), /only transition/);
-      await client.query("UPDATE competition_stages SET status='ARCHIVED' WHERE id=$1", [root.rows[0].id]);
+      const archivedStage = await client.query("UPDATE competition_stages SET status='ARCHIVED' WHERE id=$1 RETURNING archived_at", [root.rows[0].id]);
+      expect(archivedStage.rows[0].archived_at).toBeTruthy();
       await expectDatabaseFailure(client, () => client.query("UPDATE competition_stages SET stage_level_code='TAMPERED' WHERE id=$1", [root.rows[0].id]), /immutable/);
+      await expectDatabaseFailure(client, () => client.query("UPDATE competition_stages SET archived_at='2094-12-31T00:00:00Z' WHERE id=$1", [root.rows[0].id]), /immutable/);
       await expectDatabaseFailure(client, () => client.query("DELETE FROM competition_stages WHERE id=$1", [root.rows[0].id]));
       await client.query('ROLLBACK');
     } finally { client.release(); }
@@ -115,8 +123,10 @@ suite('competition operational foundation migration', () => {
       await expectDatabaseFailure(client, () => client.query("DELETE FROM calendar_occurrences WHERE id=$1", [occurrence.rows[0].id]));
       await client.query("UPDATE calendar_occurrences SET status='COMPLETED' WHERE id=$1", [occurrence.rows[0].id]);
       await expectDatabaseFailure(client, () => client.query("UPDATE calendar_occurrences SET status='ARCHIVED', start_at='2093-02-02T09:00:00Z' WHERE id=$1", [occurrence.rows[0].id]), /only transition/);
-      await client.query("UPDATE calendar_occurrences SET status='ARCHIVED' WHERE id=$1", [occurrence.rows[0].id]);
+      const archivedOccurrence = await client.query("UPDATE calendar_occurrences SET status='ARCHIVED' WHERE id=$1 RETURNING archived_at", [occurrence.rows[0].id]);
+      expect(archivedOccurrence.rows[0].archived_at).toBeTruthy();
       await expectDatabaseFailure(client, () => client.query("UPDATE calendar_occurrences SET status='DRAFT' WHERE id=$1", [occurrence.rows[0].id]), /forward-only/);
+      await expectDatabaseFailure(client, () => client.query("UPDATE calendar_occurrences SET archived_at='2093-12-31T00:00:00Z' WHERE id=$1", [occurrence.rows[0].id]), /immutable/);
       const venueA = await client.query("INSERT INTO venues(code,name,wilaya_id,daira_id,commune_id,address,technical_attributes) VALUES('VEN-A','Venue A',58,999001,999001,'Address A','{\"lanes\":6}') RETURNING id");
       const venueB = await client.query("INSERT INTO venues(code,name,wilaya_id) VALUES('VEN-B','Venue B',58) RETURNING id");
       await expectDatabaseFailure(client, () => client.query("INSERT INTO venues(code,name) VALUES('VEN-A','Duplicate')"));
