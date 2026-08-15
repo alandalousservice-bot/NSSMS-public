@@ -68,15 +68,17 @@ export async function canAccessResource(request: AuthenticatedRequest, resource:
   const result = await pool.query(`SELECT 1 FROM ${tables[resource]} r WHERE r.id=$1 AND ${condition.sql} LIMIT 1`, [id, ...condition.values]);
   return Boolean(result.rowCount);
 }
-export type CompetitionScopedResource='competition_entry'|'competition_result'|'qualification'|'ranking'|'award'|'competition_team';
+export type CompetitionScopedResource='competition_entry'|'competition_result'|'qualification'|'ranking'|'award'|'competition_team'|'competition_stage';
 export async function canAccessCompetitionResource(request:AuthenticatedRequest,resource:CompetitionScopedResource,id:string):Promise<boolean>{
   const condition=scopeCondition(request,'institution','i',2); const source:Record<CompetitionScopedResource,string>={
     competition_entry:'competition_entries e join educational_institutions i on i.id=e.institution_id',
     competition_result:'results r join competition_entries e on e.id=r.competition_entry_id join educational_institutions i on i.id=e.institution_id',
     qualification:'qualifications q join competition_entries e on e.id=q.source_entry_id join educational_institutions i on i.id=e.institution_id',
-    ranking:'rankings r join ranking_rows rr on rr.ranking_id=r.id join competition_entries e on e.id=rr.competition_entry_id join educational_institutions i on i.id=e.institution_id',
+    ranking:'rankings r join competition_entries e on e.stage_id=r.stage_id join educational_institutions i on i.id=e.institution_id',
     award:'awards a join competition_entries e on e.id=a.competition_entry_id join educational_institutions i on i.id=e.institution_id',
-    competition_team:'teams t join educational_institutions i on i.id=t.institution_id'
-  }; const alias=resource==='competition_entry'?'e':resource==='competition_result'?'r':resource==='qualification'?'q':resource==='ranking'?'r':resource==='award'?'a':'t';
+    competition_team:'teams t join educational_institutions i on i.id=t.institution_id',
+    competition_stage:'competition_stages s join competition_entries e on e.stage_id=s.id join educational_institutions i on i.id=e.institution_id'
+  }; const alias=resource==='competition_entry'?'e':resource==='competition_result'?'r':resource==='qualification'?'q':resource==='ranking'?'r':resource==='award'?'a':resource==='competition_stage'?'s':'t';
   const row=await pool.query(`select 1 from ${source[resource]} where ${alias}.id=$1 and ${condition.sql} limit 1`,[id,...condition.values]);return Boolean(row.rowCount);
 }
+
