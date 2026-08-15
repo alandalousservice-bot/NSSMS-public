@@ -24,6 +24,8 @@ suite('competition people delegation officials foundation', () => {
       await fails(c,()=>c.query("INSERT INTO delegations(stage_id,institution_id,representing_organization_id,name) VALUES($1,$2,$3,'Bad')",[stage,ins,org]));
       const member=(await c.query("INSERT INTO delegation_members(delegation_id,person_id,role) VALUES($1,$2,'COACH') RETURNING id",[delegation,independent])).rows[0].id;
       await fails(c,()=>c.query("INSERT INTO delegation_members(delegation_id,person_id,role) VALUES($1,$2,'COACH')",[delegation,independent]));
+      const draftMember=(await c.query("INSERT INTO delegation_members(delegation_id,person_id,role) VALUES($1,$2,'ADMINISTRATIVE') RETURNING id",[delegation,independent])).rows[0].id;
+      await c.query("UPDATE delegation_members SET role='OTHER' WHERE id=$1",[draftMember]); await c.query('DELETE FROM delegation_members WHERE id=$1',[draftMember]);
       const official=(await c.query("INSERT INTO competition_officials(person_id,official_type) VALUES($1,'REFEREE') RETURNING id",[independent])).rows[0].id;
       const assignment=(await c.query("INSERT INTO official_assignments(official_id,stage_id,role,status) VALUES($1,$2,'REFEREE','ASSIGNED') RETURNING id",[official,stage])).rows[0].id;
       await fails(c,()=>c.query("INSERT INTO official_assignments(official_id,stage_id,role,status) VALUES($1,$2,'REFEREE','ASSIGNED')",[official,stage]));
@@ -33,9 +35,17 @@ suite('competition people delegation officials foundation', () => {
       await c.query("INSERT INTO official_assignments(official_id,stage_id,occurrence_id,role,status) VALUES($1,$2,$3,'JUDGE','ASSIGNED')",[official,stage,occurrence]);
       const otherStage=(await c.query("INSERT INTO competition_stages(competition_id,programme_id,regulation_version_id,stage_level_code) VALUES($1,$2,$3,'DAIRA') RETURNING id",[competition,programme,version])).rows[0].id;
       await fails(c,()=>c.query("INSERT INTO official_assignments(official_id,stage_id,occurrence_id,role) VALUES($1,$2,$3,'JUDGE')",[official,otherStage,occurrence]),/occurrence must belong/);
+      const draftDelegation=(await c.query("INSERT INTO delegations(stage_id,institution_id,name) VALUES($1,$2,'Draft Delegation') RETURNING id",[otherStage,ins])).rows[0].id;
+      const draftAssignment=(await c.query("INSERT INTO official_assignments(official_id,stage_id,role,status) VALUES($1,$2,'TECHNICAL','ASSIGNED') RETURNING id",[official,otherStage])).rows[0].id;
+      await c.query("UPDATE official_assignments SET role='JUDGE' WHERE id=$1",[draftAssignment]); await c.query('DELETE FROM official_assignments WHERE id=$1',[draftAssignment]);
       await c.query("UPDATE competition_stages SET status='SCHEDULED' WHERE id=$1",[stage]); await c.query("UPDATE competition_stages SET status='ACTIVE' WHERE id=$1",[stage]);
-      await fails(c,()=>c.query("UPDATE delegation_members SET role='HEAD_OF_DELEGATION' WHERE id=$1",[member]),/immutable/); await fails(c,()=>c.query('DELETE FROM delegation_members WHERE id=$1',[member]));
-      await fails(c,()=>c.query("UPDATE official_assignments SET role='JUDGE' WHERE id=$1",[assignment]),/immutable/); await fails(c,()=>c.query('DELETE FROM official_assignments WHERE id=$1',[assignment]));
+      await fails(c,()=>c.query("INSERT INTO delegation_members(delegation_id,person_id,role) VALUES($1,$2,'TRAINER')",[delegation,independent]),/cannot be added/);
+      await fails(c,()=>c.query("UPDATE delegation_members SET role='HEAD_OF_DELEGATION' WHERE id=$1",[member]),/immutable/); await fails(c,()=>c.query("UPDATE delegation_members SET delegation_id=$1 WHERE id=$2",[draftDelegation,member]),/immutable/); await fails(c,()=>c.query('DELETE FROM delegation_members WHERE id=$1',[member]));
+      await fails(c,()=>c.query("INSERT INTO official_assignments(official_id,stage_id,role) VALUES($1,$2,'TECHNICAL')",[official,stage]),/cannot be added/);
+      await fails(c,()=>c.query("UPDATE official_assignments SET role='JUDGE' WHERE id=$1",[assignment]),/immutable/); await fails(c,()=>c.query("UPDATE official_assignments SET stage_id=$1 WHERE id=$2",[otherStage,assignment]),/immutable/); await fails(c,()=>c.query('DELETE FROM official_assignments WHERE id=$1',[assignment]));
+      const publishedOccurrence=(await c.query("INSERT INTO calendar_occurrences(stage_id,event_id,regulation_version_id,start_at) VALUES($1,$2,$3,'2091-03-01T09:00:00Z') RETURNING id",[otherStage,event,version])).rows[0].id;
+      await c.query("UPDATE calendar_occurrences SET status='APPROVED' WHERE id=$1",[publishedOccurrence]); await c.query("UPDATE calendar_occurrences SET status='PUBLISHED' WHERE id=$1",[publishedOccurrence]);
+      await fails(c,()=>c.query("INSERT INTO official_assignments(official_id,stage_id,occurrence_id,role) VALUES($1,$2,$3,'TIMEKEEPER')",[official,otherStage,publishedOccurrence]),/cannot be added/);
       await c.query('ROLLBACK');
     } finally { c.release(); }
   });
