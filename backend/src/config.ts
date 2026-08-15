@@ -18,6 +18,8 @@ export const config = {
   requestTimeoutMs: positiveInteger('REQUEST_TIMEOUT_MS', 30_000),
   rateLimitMax: positiveInteger('RATE_LIMIT_MAX', 100),
   rateLimitWindow: process.env.RATE_LIMIT_WINDOW ?? '1 minute',
+  authRateLimitMax: positiveInteger('AUTH_RATE_LIMIT_MAX', 100),
+  registrationRateLimitMax: positiveInteger('REGISTRATION_RATE_LIMIT_MAX', 20),
   trustProxy: process.env.TRUST_PROXY === 'true'
 };
 if (nodeEnv === 'production' && (config.authSecret.length < 32 || !config.databaseUrl || config.authSecret === 'development-only-change-me')) throw new Error('AUTH_SECRET and DATABASE_URL are required in production');

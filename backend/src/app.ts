@@ -1,4 +1,4 @@
-import Fastify from 'fastify';
+import Fastify, { LogController, type FastifyBaseLogger } from 'fastify';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import cors from '@fastify/cors';
@@ -11,12 +11,21 @@ import { config } from './config.js';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { scopeKind } from './http/auth-guard.js';
 
-export function buildApp() {
-  const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' }, genReqId: () => randomUUID(), requestTimeout: config.requestTimeoutMs, bodyLimit: config.bodyLimit, trustProxy: config.trustProxy });
+export function buildApp(options: { loggerInstance?: FastifyBaseLogger } = {}) {
+  const app = Fastify({ loggerInstance: options.loggerInstance, logger: options.loggerInstance ? undefined : { level: process.env.LOG_LEVEL ?? 'info' }, logController: new LogController({ disableRequestLogging: true }), genReqId: () => randomUUID(), requestTimeout: config.requestTimeoutMs, bodyLimit: config.bodyLimit, trustProxy: config.trustProxy });
   app.addHook('onRequest', async (request, reply) => { reply.header('x-request-id', request.id); if (request.headers.authorization) reply.header('cache-control', 'private, no-store'); });
   const errorBody = (requestId: string, code: string, message: string) => ({ error: { code, message, request_id: requestId } });
-  app.setErrorHandler((error, request, reply) => { const err = error as { statusCode?: number; code?: string; name?: string }; const status = err.statusCode && err.statusCode < 500 ? err.statusCode : 500; const code = status === 429 ? 'RATE_LIMITED' : status === 401 ? 'UNAUTHORIZED' : status === 403 ? 'FORBIDDEN' : status === 404 ? 'NOT_FOUND' : status === 400 || status === 413 || status === 422 ? 'VALIDATION_ERROR' : 'INTERNAL_ERROR'; request.log.error({ request_id: request.id, error_code: code, error_category: err.code ?? err.name ?? 'unhandled' }, 'request failed'); return reply.code(status).send(errorBody(request.id, code, code === 'INTERNAL_ERROR' ? 'An internal error occurred' : 'The request could not be completed')); });
+  app.setErrorHandler((error, request, reply) => { const err = error as { statusCode?: number; code?: string; name?: string }; const status = err.statusCode && err.statusCode < 500 ? err.statusCode : 500; const code = status === 429 ? 'RATE_LIMITED' : status === 401 ? 'UNAUTHORIZED' : status === 403 ? 'FORBIDDEN' : status === 404 ? 'NOT_FOUND' : status === 400 || status === 413 || status === 422 ? 'VALIDATION_ERROR' : 'INTERNAL_ERROR'; (request as typeof request & { errorCode?: string }).errorCode = code; request.log.error({ request_id: request.id, error_code: code, error_category: err.code ?? err.name ?? 'unhandled' }, 'request failed'); return reply.code(status).send(errorBody(request.id, code, code === 'INTERNAL_ERROR' ? 'An internal error occurred' : 'The request could not be completed')); });
+  app.addHook('onResponse', async (request, reply) => {
+    const auth = (request as typeof request & { auth?: { userId: string; institutionId?: string; dairaId?: string; organizationId?: string } }).auth;
+    const scopeId = auth?.institutionId ?? auth?.dairaId ?? auth?.organizationId;
+    const path = request.routeOptions.url ?? request.url.split('?')[0];
+    const objectType = path.includes('competition-entries') ? 'competition_entry' : path.includes('competition-results') ? 'competition_result' : path.includes('qualifications') ? 'qualification' : path.includes('rankings') ? 'ranking' : path.includes('awards') ? 'award' : undefined;
+    const objectId = (request.params as { id?: string } | undefined)?.id;
+    request.log.info({ request_id: request.id, method: request.method, route: path, status: reply.statusCode, duration_ms: Math.round(reply.elapsedTime), user_id: auth?.userId, scope_type: auth ? scopeKind(request as never) : undefined, scope_id: scopeId, object_type: objectType, object_id: objectId, error_code: (request as typeof request & { errorCode?: string }).errorCode }, 'request completed');
+  });
   app.setNotFoundHandler((request, reply) => reply.code(404).send(errorBody(request.id, 'NOT_FOUND', 'Route not found')));
   app.register(helmet, { contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } }, referrerPolicy: { policy: 'no-referrer' } });
   app.register(cors, { origin: (origin, callback) => callback(null, !origin || config.corsOrigins.includes(origin)), credentials: true, methods: ['GET','POST','PATCH','PUT','DELETE','OPTIONS'], allowedHeaders: ['content-type','authorization','x-request-id'] });
@@ -35,14 +44,14 @@ export function buildApp() {
   app.get('/api/v1', async () => ({ name:'NSSMS API', version:'1.0.0', status:'active' }));
   app.get('/openapi.json', async (_request, reply) => { reply.type('application/json'); return JSON.parse(await readFile(resolve(process.cwd(),'openapi.json'),'utf8')); });
   app.get('/ready', async (_request, reply) => { try { const { pool } = await import('./infrastructure/db.js'); await pool.query('SELECT 1'); return { status: 'ready', database: 'ok' }; } catch { return reply.code(503).send({ status: 'not_ready', database: 'unavailable' }); } });
-  app.post('/api/v1/auth/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+  app.post('/api/v1/auth/login', { config: { rateLimit: { max: config.authRateLimitMax, timeWindow: config.rateLimitWindow } } }, async (request, reply) => {
     const parsed = z.object({ username: z.string().min(3).max(100), password: z.string().min(12).max(200) }).safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid_credentials' });
     const result = await login(parsed.data.username, parsed.data.password);
     if (!result) return reply.code(401).send({ error: 'invalid_credentials' });
     return result;
   });
-  app.post('/api/v1/auth/institution-register', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
+  app.post('/api/v1/auth/institution-register', { config: { rateLimit: { max: config.registrationRateLimitMax, timeWindow: config.rateLimitWindow } } }, async (request, reply) => {
     const parsed = z.object({ username: z.string().min(3).max(100), password: z.string().min(12).max(200), displayName: z.string().min(2).max(200), institutionName: z.string().min(2).max(200), institutionCode: z.string().min(2).max(80), wilayaId: z.coerce.number().int().min(1).max(58), dairaId: z.coerce.number().int().nonnegative() }).safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'validation_error' });
     const { pool } = await import('./infrastructure/db.js');
