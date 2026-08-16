@@ -41,10 +41,13 @@ suite('ARCH-016 scoped Result collection candidates', () => {
     const response = await app!.inject({ method: 'GET', url: `/api/v1/admin/competition-results?competition_entry_id=${own.entry}&limit=1&offset=0`, headers });
     expect(response.statusCode).toBe(200); expect(response.json().meta.pagination).toEqual({ limit: 1, offset: 0, total: 1 });
     expect(response.json().data).toEqual([expect.objectContaining({ id: own.result, competition_entry_id: own.entry, latest_revision_no: 0, is_evidence_candidate: true, current_validation: expect.objectContaining({ id: decision.json().data.id, decision: 'VALIDATED', revision_no: 0 }) })]);
+    const candidates = await app!.inject({ method: 'GET', url: `/api/v1/admin/competition-results?competition_entry_id=${own.entry}&evidence_candidate=true&limit=1`, headers });
+    expect(candidates.statusCode).toBe(200); expect(candidates.json().meta.pagination).toEqual({ limit: 1, offset: 0, total: 1 }); expect(candidates.json().data).toEqual([expect.objectContaining({ id: own.result, is_evidence_candidate: true, current_validation: expect.objectContaining({ decision: 'VALIDATED' }) })]);
     const superseding = await app!.inject({ method: 'POST', url: `/api/v1/admin/competition-results/${own.result}/rejected`, headers, payload: { revisionNo: 0, supersedesValidationId: decision.json().data.id } }); expect(superseding.statusCode).toBe(200);
     const current = await app!.inject({ method: 'GET', url: `/api/v1/admin/competition-results?competition_entry_id=${own.entry}`, headers });
     expect(current.json().data[0]).toEqual(expect.objectContaining({ is_evidence_candidate: false, current_validation: expect.objectContaining({ id: superseding.json().data.id, decision: 'REJECTED' }) }));
+    expect((await app!.inject({ method: 'GET', url: `/api/v1/admin/competition-results?competition_entry_id=${own.entry}&evidence_candidate=true`, headers })).json().data).toEqual([]);
     const scoped = await app!.inject({ method: 'GET', url: `/api/v1/admin/competition-results?stage_id=${foreign.stage}`, headers }); expect(scoped.statusCode).toBe(200); expect(scoped.json().data).toEqual([]);
-    const invalid = await app!.inject({ method: 'GET', url: '/api/v1/admin/competition-results?competition_entry_id=invalid', headers }); expect(invalid.statusCode).toBe(422); expect(invalid.json().error).toBe('validation_error'); expect(invalid.body).not.toMatch(/postgres|sql|constraint|trigger|plpgsql|stack|driver|detail/i);
+    const invalid = await app!.inject({ method: 'GET', url: '/api/v1/admin/competition-results?evidence_candidate=foo', headers }); expect(invalid.statusCode).toBe(422); expect(invalid.json().error).toBe('validation_error'); expect(invalid.body).not.toMatch(/postgres|sql|constraint|trigger|plpgsql|stack|driver|detail/i);
   });
 });
