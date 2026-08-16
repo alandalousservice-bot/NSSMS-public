@@ -35,6 +35,11 @@ export const competitionReferences = {
     const scope = scopedStages(request, 's', 1), values: unknown[] = [...scope.values, query.stage_id];
     return listed(`select v.id,v.version_no as code,v.version_no as label,v.status,s.id as stage_id,v.programme_id,v.effective_period::text as effective_period from competition_stages s join regulation_versions v on v.id=s.regulation_version_id where ${scope.sql} and s.id=$${values.length} order by v.version_no,v.id`, values, query);
   },
+  dairas: (query: { wilaya_id?: number } & Page) => {
+    const values: unknown[] = [], where: string[] = [];
+    if (query.wilaya_id) { values.push(query.wilaya_id); where.push(`d.wilaya_id=$${values.length}`); }
+    return listed(`select d.id,d.name as label,d.wilaya_id from dairas d${where.length ? ` where ${where.join(' and ')}` : ''} order by d.name,d.id`, values, query);
+  },
   teams: (request: AuthenticatedRequest, query: { stage_id: string; category_id?: string } & Page) => {
     const scope = scopedStages(request, 's', 1), values: unknown[] = [...scope.values, query.stage_id], where = [`${scope.sql}`, `t.stage_id=$${values.length}`];
     const kind = request.auth.institutionId ? 'institution' : request.auth.dairaId != null ? 'daira' : request.auth.organizationId ? 'organization' : 'national';

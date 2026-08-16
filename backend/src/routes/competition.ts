@@ -24,6 +24,7 @@ const awardList = page.extend({ ranking_id: id.optional(), competition_entry_id:
 const referenceStageList = page.extend({ competition_id: id.optional(), status: z.enum(['DRAFT', 'SCHEDULED', 'ACTIVE', 'RESULTS', 'CLOSED', 'ARCHIVED']).optional() });
 const referenceStageContext = page.extend({ stage_id: id });
 const referenceTeamList = referenceStageContext.extend({ category_id: id.optional() });
+const referenceDairaList = page.extend({ wilaya_id: z.coerce.number().int().positive().optional() });
 const actor = (request: AuthenticatedRequest) => ({ userId: request.auth.userId });
 
 function send(reply: any, error: unknown) {
@@ -66,6 +67,11 @@ export async function registerCompetitionRoutes(app: FastifyInstance) {
     return { data: result.rows, meta: pageMeta(query.limit, query.offset, result.total) };
   });
   const nationalConfiguration = (request: AuthenticatedRequest) => { if (scopeKind(request) !== 'national') throw new CompetitionError('FORBIDDEN', 'National competition configuration is required'); };
+  const nationalReference = (schema: z.ZodTypeAny, fetch: (query: any) => Promise<{ rows: Record<string, unknown>[]; total: number }>) => command(async request => {
+    nationalConfiguration(request);
+    const query = schema.parse(request.query), result = await fetch(query);
+    return { data: result.rows, meta: pageMeta(query.limit, query.offset, result.total) };
+  });
 
   app.post('/api/v1/admin/competition-entries', command(async request => {
     const body = z.object({ stageId: id, categoryId: id, institutionId: id.optional(), representingOrganizationId: id.optional(), regulationVersionId: id, participantId: id.optional(), teamId: id.optional() }).refine(value => Boolean(value.participantId) !== Boolean(value.teamId)).parse(request.body);
@@ -86,6 +92,7 @@ export async function registerCompetitionRoutes(app: FastifyInstance) {
   app.get('/api/v1/admin/competition-reference/categories', reference(referenceStageContext, competitionReferences.categories));
   app.get('/api/v1/admin/competition-reference/regulation-versions', reference(referenceStageContext, competitionReferences.regulationVersions));
   app.get('/api/v1/admin/competition-reference/teams', reference(referenceTeamList, competitionReferences.teams));
+  app.get('/api/v1/admin/competition-reference/dairas', nationalReference(referenceDairaList, competitionReferences.dairas));
 
   app.get('/api/v1/admin/competition-stages/:stageId/eligibility', command(async request => { nationalConfiguration(request); const stageId = id.parse(request.params.stageId); return { data: await stageEligibility.list(stageId) }; }));
   app.post('/api/v1/admin/competition-stages/:stageId/eligibility', command(async request => {
