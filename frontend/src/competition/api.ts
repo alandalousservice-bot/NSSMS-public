@@ -1,4 +1,4 @@
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+import { API_BASE_URL } from '../api-base';
 
 export type Pagination = { limit: number; offset: number; total: number };
 export type Envelope<T> = { data: T; meta?: { pagination?: Pagination } };
@@ -31,7 +31,8 @@ function normalizedCode(value: unknown): ApiErrorCode {
 export class CompetitionApi {
   constructor(private token: string, private fetcher: typeof fetch = fetch) {}
   private async request<T>(path: string, init: RequestInit = {}): Promise<Envelope<T>> {
-    const response = await this.fetcher(`${API}${path}`, { ...init, headers: { authorization: `Bearer ${this.token}`, ...(init.body ? { 'content-type': 'application/json' } : {}), ...(init.headers ?? {}) } });
+    const fetcher = this.fetcher;
+    const response = await fetcher(`${API_BASE_URL}${path}`, { ...init, headers: { authorization: `Bearer ${this.token}`, ...(init.body ? { 'content-type': 'application/json' } : {}), ...(init.headers ?? {}) } });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       const error = body?.error;

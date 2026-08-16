@@ -4,7 +4,9 @@ const positiveInteger = (name: string, fallback: number) => {
   if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
   return value;
 };
-const origins = (process.env.CORS_ALLOWED_ORIGINS ?? process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173').split(',').map((origin) => origin.trim()).filter(Boolean);
+const developmentOrigins = 'http://localhost:5173,http://127.0.0.1:5173';
+const configuredOrigins = process.env.CORS_ALLOWED_ORIGINS ?? process.env.FRONTEND_ORIGIN;
+const origins = (configuredOrigins ?? developmentOrigins).split(',').map((origin) => origin.trim()).filter(Boolean);
 if (!['development', 'test', 'production'].includes(nodeEnv)) throw new Error('NODE_ENV must be development, test, or production');
 if (!origins.length || origins.includes('*')) throw new Error('CORS_ALLOWED_ORIGINS must contain explicit origins only');
 export const config = {
@@ -23,3 +25,4 @@ export const config = {
   trustProxy: process.env.TRUST_PROXY === 'true'
 };
 if (nodeEnv === 'production' && (config.authSecret.length < 32 || !config.databaseUrl || config.authSecret === 'development-only-change-me')) throw new Error('AUTH_SECRET and DATABASE_URL are required in production');
+if (nodeEnv === 'production' && !configuredOrigins) throw new Error('CORS_ALLOWED_ORIGINS must be configured in production');

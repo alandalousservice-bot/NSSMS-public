@@ -13,6 +13,13 @@ describe('CompetitionApi contract', () => {
     expect(result.data[0].is_evidence_candidate).toBe(true);
   });
 
+  it('invokes the native-compatible fetch function without binding it to the API client', async () => {
+    let receiver: unknown = 'not-called';
+    const fetcher = function (this: unknown) { receiver = this; return Promise.resolve(response({ data: [] })); };
+    await new CompetitionApi('token', fetcher as unknown as typeof fetch).entries.list();
+    expect(receiver).toBeUndefined();
+  });
+
   it('preserves stable error code and request id without parsing the error message', async () => {
     const fetcher = vi.fn().mockResolvedValue(response({ error: { code: 'RATE_LIMITED', message: 'retry later', request_id: 'req-123' } }, 429));
     await expect(new CompetitionApi('token', fetcher as unknown as typeof fetch).references.stages()).rejects.toMatchObject({ code: 'RATE_LIMITED', requestId: 'req-123', status: 429 });

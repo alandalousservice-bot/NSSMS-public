@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { LayoutDashboard, ShieldCheck } from 'lucide-react';
 import { CompetitionAdmin } from './competition/CompetitionAdmin';
+import { API_BASE_URL } from './api-base';
 
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+const API = API_BASE_URL;
 const labels: Record<string, string> = { SYSTEM_ADMINISTRATOR: 'إداري عام', NATIONAL_ADMINISTRATOR: 'إداري وطني', ASSOCIATION_ADMINISTRATOR: 'مدير رابطة', ASSOCIATION_REPRESENTATIVE: 'ممثل رابطة', DAIRA_OFFICER: 'مسؤول دائرة', MEMBER_INSTITUTION_USER: 'مسؤول مؤسسة' };
 
 export function RoleAdmin({ onBack }: { onBack: () => void }) {
