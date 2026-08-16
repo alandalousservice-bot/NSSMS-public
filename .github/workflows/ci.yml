@@ -40,8 +40,11 @@ jobs:
         working-directory: frontend
       - run: npm run migrate
         working-directory: backend
+      - run: git clone https://github.com/thehocinesaad/laravel-algereography.git .ci-geography && git -C .ci-geography checkout 3002ce47fccf9a108604c914af346bb441a2f8f7
       - run: npm run import:geography
         working-directory: backend
+        env:
+          GEOGRAPHY_SOURCE_DIR: ../.ci-geography/database/seeders
       - run: npm run seed:data
         working-directory: backend
       - run: npm run seed:demo
