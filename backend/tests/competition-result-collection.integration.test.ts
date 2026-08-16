@@ -36,6 +36,9 @@ suite('ARCH-016 scoped Result collection candidates', () => {
     const own = await fixture(me.json().user.institutionId);
     const foreignInstitution = (await pool!.query('select id from educational_institutions where id<>$1 limit 1', [me.json().user.institutionId])).rows[0].id;
     const foreign = await fixture(foreignInstitution);
+    const nationalLogin = await app!.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { username: 'demo.admin', password: 'NssmsDemoAdmin-2026!' } }); expect(nationalLogin.statusCode).toBe(200); const national = { authorization: `Bearer ${nationalLogin.json().token}` };
+    expect((await app!.inject({ method: 'POST', url: `/api/v1/admin/competition-results/${foreign.result}/submit`, headers: national })).statusCode).toBe(200);
+    expect((await app!.inject({ method: 'POST', url: `/api/v1/admin/competition-results/${foreign.result}/validated`, headers: national, payload: { revisionNo: 0 } })).statusCode).toBe(200);
     expect((await app!.inject({ method: 'POST', url: `/api/v1/admin/competition-results/${own.result}/submit`, headers })).statusCode).toBe(200);
     const decision = await app!.inject({ method: 'POST', url: `/api/v1/admin/competition-results/${own.result}/validated`, headers, payload: { revisionNo: 0 } }); expect(decision.statusCode).toBe(200);
     const response = await app!.inject({ method: 'GET', url: `/api/v1/admin/competition-results?competition_entry_id=${own.entry}&limit=1&offset=0`, headers });
@@ -59,10 +62,16 @@ suite('ARCH-016 scoped Result collection candidates', () => {
     expect((await app!.inject({ method: 'GET', url: `/api/v1/admin/competition-results?competition_entry_id=${revised.entry}&evidence_candidate=true`, headers })).json().data).toEqual([]);
     expect((await app!.inject({ method: 'POST', url: `/api/v1/admin/competition-results/${revised.result}/validated`, headers, payload: { revisionNo: 1, supersedesValidationId: revisionZero.json().data.id } })).statusCode).toBe(200);
     expect((await app!.inject({ method: 'GET', url: `/api/v1/admin/competition-results?competition_entry_id=${revised.entry}&evidence_candidate=true`, headers })).json().data).toEqual([expect.objectContaining({ id: revised.result, latest_revision_no: 1, current_validation: expect.objectContaining({ decision: 'VALIDATED', revision_no: 1 }) })]);
+    const team = (await pool!.query("insert into teams(institution_id,stage_id,category_id,name) values($1,$2,$3,'B2 candidate team') returning id", [me.json().user.institutionId, own.stage, own.category])).rows[0].id;
+    const teamEntry = (await pool!.query("insert into competition_entries(stage_id,category_id,institution_id,entry_type,regulation_version_id) values($1,$2,$3,'TEAM',$4) returning id", [own.stage, own.category, me.json().user.institutionId, own.version])).rows[0].id;
+    await pool!.query("insert into team_entries(competition_entry_id,team_id,stage_id,category_id,participation_state) values($1,$2,$3,$4,'DRAFT')", [teamEntry, team, own.stage, own.category]);
+    const teamResult = (await pool!.query("insert into results(competition_id,stage_id,occurrence_id,event_id,category_id,competition_entry_id,regulation_version_id,governed_status,result_data) values($1,$2,$3,$4,$5,$6,$7,'DRAFT',$8) returning id", [own.competition, own.stage, own.occurrence, own.event, own.category, teamEntry, own.version, { score: 12 }])).rows[0].id;
+    expect((await app!.inject({ method: 'POST', url: `/api/v1/admin/competition-results/${teamResult}/submit`, headers })).statusCode).toBe(200); expect((await app!.inject({ method: 'POST', url: `/api/v1/admin/competition-results/${teamResult}/validated`, headers, payload: { revisionNo: 0 } })).statusCode).toBe(200);
+    expect((await app!.inject({ method: 'GET', url: `/api/v1/admin/competition-results?competition_entry_id=${teamEntry}&evidence_candidate=true`, headers })).json().data).toEqual([expect.objectContaining({ id: teamResult, is_evidence_candidate: true })]);
     const legacy = (await pool!.query('insert into results(competition_id,participant_id,result_data) values($1,$2,$3) returning id', [own.competition, own.participant, { legacy: true }])).rows[0].id;
     const legacyRows = await app!.inject({ method: 'GET', url: '/api/v1/admin/competition-results', headers }); expect(legacyRows.json().data).toContainEqual(expect.objectContaining({ id: legacy, legacy_unresolved: true }));
     expect((await app!.inject({ method: 'GET', url: '/api/v1/admin/competition-results?evidence_candidate=true', headers })).json().data.some((row: { id: string }) => row.id === legacy)).toBe(false);
-    const scoped = await app!.inject({ method: 'GET', url: `/api/v1/admin/competition-results?stage_id=${foreign.stage}`, headers }); expect(scoped.statusCode).toBe(200); expect(scoped.json().data).toEqual([]);
+    const scoped = await app!.inject({ method: 'GET', url: `/api/v1/admin/competition-results?stage_id=${foreign.stage}&evidence_candidate=true`, headers }); expect(scoped.statusCode).toBe(200); expect(scoped.json().data).toEqual([]);
     const invalid = await app!.inject({ method: 'GET', url: '/api/v1/admin/competition-results?evidence_candidate=foo', headers }); expect(invalid.statusCode).toBe(422); expect(invalid.json().error).toBe('validation_error'); expect(invalid.body).not.toMatch(/postgres|sql|constraint|trigger|plpgsql|stack|driver|detail/i);
   });
 });
