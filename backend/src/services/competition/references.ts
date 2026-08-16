@@ -1,6 +1,6 @@
 import { pool } from '../../infrastructure/db.js';
 import type { AuthenticatedRequest } from '../../http/auth-guard.js';
-import { stageEligibilityCondition } from '../../http/auth-guard.js';
+import { scopeCondition, stageEligibilityCondition } from '../../http/auth-guard.js';
 
 export type Page = { limit: number; offset: number };
 type Listed = { rows: Record<string, unknown>[]; total: number };
@@ -39,6 +39,22 @@ export const competitionReferences = {
     const values: unknown[] = [], where: string[] = [];
     if (query.wilaya_id) { values.push(query.wilaya_id); where.push(`d.wilaya_id=$${values.length}`); }
     return listed(`select d.id,d.name as label,d.wilaya_id from dairas d${where.length ? ` where ${where.join(' and ')}` : ''} order by d.name,d.id`, values, query);
+  },
+  organizations: (query: { wilaya_id?: number } & Page) => {
+    const values: unknown[] = [], where = ['o.archived_at is null'];
+    if (query.wilaya_id) { values.push(query.wilaya_id); where.push(`o.wilaya_id=$${values.length}`); }
+    return listed(`select o.id,o.name as label,o.wilaya_id,o.code,o.status from organizations o where ${where.join(' and ')} order by o.name,o.id`, values, query);
+  },
+  institutions: (request: AuthenticatedRequest, query: { organization_id?: string; daira_id?: number } & Page) => {
+    const scope = scopeCondition(request, 'institution', 'i', 1), values: unknown[] = [...scope.values], where = ['i.archived_at is null', scope.sql];
+    if (query.organization_id) { values.push(query.organization_id); where.push(`i.organization_id=$${values.length}`); }
+    if (query.daira_id) { values.push(query.daira_id); where.push(`i.daira_id=$${values.length}`); }
+    return listed(`select i.id,i.name as label,i.organization_id,i.daira_id,i.code,i.status from educational_institutions i where ${where.join(' and ')} order by i.name,i.id`, values, query);
+  },
+  participants: (request: AuthenticatedRequest, query: { institution_id?: string } & Page) => {
+    const scope = scopeCondition(request, 'participant', 'p', 1), values: unknown[] = [...scope.values], where = ['p.archived_at is null', scope.sql];
+    if (query.institution_id) { values.push(query.institution_id); where.push(`p.institution_id=$${values.length}`); }
+    return listed(`select p.id,coalesce(nullif(concat_ws(' ',p.given_name,p.family_name),''),'Participant') as label,p.institution_id from participants p where ${where.join(' and ')} order by p.given_name nulls last,p.family_name nulls last,p.id`, values, query);
   },
   teams: (request: AuthenticatedRequest, query: { stage_id: string; category_id?: string } & Page) => {
     const scope = scopedStages(request, 's', 1), values: unknown[] = [...scope.values, query.stage_id], where = [`${scope.sql}`, `t.stage_id=$${values.length}`];

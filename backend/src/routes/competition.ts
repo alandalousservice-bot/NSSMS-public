@@ -25,6 +25,9 @@ const referenceStageList = page.extend({ competition_id: id.optional(), status: 
 const referenceStageContext = page.extend({ stage_id: id });
 const referenceTeamList = referenceStageContext.extend({ category_id: id.optional() });
 const referenceDairaList = page.extend({ wilaya_id: z.coerce.number().int().positive().optional() });
+const referenceOrganizationList = page.extend({ wilaya_id: z.coerce.number().int().positive().optional() });
+const referenceInstitutionList = page.extend({ organization_id: id.optional(), daira_id: z.coerce.number().int().positive().optional() });
+const referenceParticipantList = page.extend({ institution_id: id.optional() });
 const actor = (request: AuthenticatedRequest) => ({ userId: request.auth.userId });
 
 function send(reply: any, error: unknown) {
@@ -93,6 +96,9 @@ export async function registerCompetitionRoutes(app: FastifyInstance) {
   app.get('/api/v1/admin/competition-reference/regulation-versions', reference(referenceStageContext, competitionReferences.regulationVersions));
   app.get('/api/v1/admin/competition-reference/teams', reference(referenceTeamList, competitionReferences.teams));
   app.get('/api/v1/admin/competition-reference/dairas', nationalReference(referenceDairaList, competitionReferences.dairas));
+  app.get('/api/v1/admin/competition-reference/organizations', nationalReference(referenceOrganizationList, competitionReferences.organizations));
+  app.get('/api/v1/admin/competition-reference/institutions', reference(referenceInstitutionList, competitionReferences.institutions));
+  app.get('/api/v1/admin/competition-reference/participants', reference(referenceParticipantList, competitionReferences.participants));
 
   app.get('/api/v1/admin/competition-stages/:stageId/eligibility', command(async request => { nationalConfiguration(request); const stageId = id.parse(request.params.stageId); return { data: await stageEligibility.list(stageId) }; }));
   app.post('/api/v1/admin/competition-stages/:stageId/eligibility', command(async request => {
