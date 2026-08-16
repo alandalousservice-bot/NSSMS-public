@@ -17,6 +17,7 @@ import { competitionReferences } from '../services/competition/references.js';
 const id = z.string().uuid();
 const page = z.object({ limit: z.coerce.number().int().positive().max(100).default(25), offset: z.coerce.number().int().nonnegative().default(0) });
 const entryList = page.extend({ stage_id: id.optional(), category_id: id.optional(), status: z.enum(['DRAFT', 'SUBMITTED', 'VALIDATED', 'WITHDRAWN', 'REJECTED', 'ARCHIVED']).optional(), institution_id: id.optional(), regulation_version_id: id.optional() });
+const resultList = page.extend({ stage_id: id.optional(), occurrence_id: id.optional(), event_id: id.optional(), category_id: id.optional(), competition_entry_id: id.optional(), regulation_version_id: id.optional(), status: z.enum(['DRAFT', 'SUBMITTED', 'VALIDATED', 'REJECTED', 'VOID', 'ARCHIVED', 'LEGACY_UNRESOLVED']).optional() });
 const qualificationList = page.extend({ source_entry_id: id.optional(), source_stage_id: id.optional(), destination_stage_id: id.optional(), status: z.enum(['DRAFT', 'APPROVED', 'REJECTED', 'REVOKED', 'ARCHIVED']).optional(), regulation_version_id: id.optional() });
 const rankingList = page.extend({ stage_id: id.optional(), event_id: id.optional(), category_id: id.optional(), status: z.enum(['DRAFT', 'VALIDATED', 'PUBLISHED', 'ARCHIVED']).optional(), regulation_version_id: id.optional(), ranking_type: z.enum(['EVENT', 'CATEGORY', 'STAGE']).optional() });
 const awardList = page.extend({ ranking_id: id.optional(), competition_entry_id: id.optional(), status: z.enum(['DRAFT', 'ISSUED', 'REVOKED', 'ARCHIVED']).optional(), regulation_version_id: id.optional() });
@@ -102,6 +103,7 @@ export async function registerCompetitionRoutes(app: FastifyInstance) {
     await requireRelated(request, 'competition_entry', body.competitionEntryId);
     return { data: resultDto(await results.create(actor(request), body)) };
   }));
+  app.get('/api/v1/admin/competition-results', collection(resultList, (scope, query) => competitionCollections.results(scope, query, query), resultDto));
   app.get('/api/v1/admin/competition-results/:id', command(async request => ({ data: resultDto(await results.official(id.parse(request.params.id))) })));
   app.get('/api/v1/admin/competition-results/:id/history', command(async request => { const query = page.parse(request.query); const history = await results.history(id.parse(request.params.id), query); return { data: { result: resultDto(history.result), revisions: history.revisions.map(resultRevisionDto), validations: history.validations.map(resultValidationDto) }, meta: pageMeta(query.limit, query.offset, history.total) }; }));
   app.post('/api/v1/admin/competition-results/:id/submit', command(async request => ({ data: resultDto(await results.submit(actor(request), id.parse(request.params.id))) })));
