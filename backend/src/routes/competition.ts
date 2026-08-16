@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requirePolicy, canAccessCompetitionResource, canAccessResource, competitionResourceExists, scopeCondition, type AuthenticatedRequest } from '../http/auth-guard.js';
+import { requirePolicy, canAccessCompetitionResource, canAccessResource, canDiscoverCompetitionStage, competitionResourceExists, scopeCondition, scopeKind, type AuthenticatedRequest } from '../http/auth-guard.js';
 import { awardDto, entryDto, pageMeta, qualificationDto, rankingDto, rankingRowDto, resultDto, resultRevisionDto, resultValidationDto } from '../http/competition-contracts.js';
 import { CompetitionError } from '../services/competition/errors.js';
 import { competitionCollections } from '../services/competition/collections.js';
@@ -11,6 +11,8 @@ import { validateQualificationCreate, validateQualificationEvidence } from '../s
 import { validateRankingCreate, validateRankingInput, validateRankingRow, validateAwardCreate } from '../services/competition/ranking-award-authorization.js';
 import { rankings } from '../services/competition/rankings.js';
 import { awards } from '../services/competition/awards.js';
+import { stageEligibility } from '../services/competition/stage-eligibility.js';
+import { competitionReferences } from '../services/competition/references.js';
 
 const id = z.string().uuid();
 const page = z.object({ limit: z.coerce.number().int().positive().max(100).default(25), offset: z.coerce.number().int().nonnegative().default(0) });
@@ -18,6 +20,9 @@ const entryList = page.extend({ stage_id: id.optional(), category_id: id.optiona
 const qualificationList = page.extend({ source_entry_id: id.optional(), source_stage_id: id.optional(), destination_stage_id: id.optional(), status: z.enum(['DRAFT', 'APPROVED', 'REJECTED', 'REVOKED', 'ARCHIVED']).optional(), regulation_version_id: id.optional() });
 const rankingList = page.extend({ stage_id: id.optional(), event_id: id.optional(), category_id: id.optional(), status: z.enum(['DRAFT', 'VALIDATED', 'PUBLISHED', 'ARCHIVED']).optional(), regulation_version_id: id.optional(), ranking_type: z.enum(['EVENT', 'CATEGORY', 'STAGE']).optional() });
 const awardList = page.extend({ ranking_id: id.optional(), competition_entry_id: id.optional(), status: z.enum(['DRAFT', 'ISSUED', 'REVOKED', 'ARCHIVED']).optional(), regulation_version_id: id.optional() });
+const referenceStageList = page.extend({ competition_id: id.optional(), status: z.enum(['DRAFT', 'SCHEDULED', 'ACTIVE', 'RESULTS', 'CLOSED', 'ARCHIVED']).optional() });
+const referenceStageContext = page.extend({ stage_id: id });
+const referenceTeamList = referenceStageContext.extend({ category_id: id.optional() });
 const actor = (request: AuthenticatedRequest) => ({ userId: request.auth.userId });
 
 function send(reply: any, error: unknown) {
@@ -55,9 +60,15 @@ export async function registerCompetitionRoutes(app: FastifyInstance) {
     const result = await fetch(scopeCondition(request, 'institution', 'i', 1), query);
     return { data: result.rows.map(row => dto(row)), meta: pageMeta(query.limit, query.offset, result.total) };
   });
+  const reference = (schema: z.ZodTypeAny, fetch: (request: AuthenticatedRequest, query: any) => Promise<{ rows: Record<string, unknown>[]; total: number }>) => command(async request => {
+    const query = schema.parse(request.query), result = await fetch(request, query);
+    return { data: result.rows, meta: pageMeta(query.limit, query.offset, result.total) };
+  });
+  const nationalConfiguration = (request: AuthenticatedRequest) => { if (scopeKind(request) !== 'national') throw new CompetitionError('FORBIDDEN', 'National competition configuration is required'); };
 
   app.post('/api/v1/admin/competition-entries', command(async request => {
     const body = z.object({ stageId: id, categoryId: id, institutionId: id.optional(), representingOrganizationId: id.optional(), regulationVersionId: id, participantId: id.optional(), teamId: id.optional() }).refine(value => Boolean(value.participantId) !== Boolean(value.teamId)).parse(request.body);
+    if (!await canDiscoverCompetitionStage(request, body.stageId)) throw new CompetitionError('FORBIDDEN', 'Competition stage is outside the administrative eligibility scope');
     await requireRelated(request, 'institution', body.institutionId);
     if (body.participantId) await requireRelated(request, 'participant', body.participantId);
     if (body.teamId) await requireRelated(request, 'competition_team', body.teamId);
@@ -67,6 +78,24 @@ export async function registerCompetitionRoutes(app: FastifyInstance) {
   app.get('/api/v1/admin/competition-entries', collection(entryList, (scope, query) => competitionCollections.entries(scope, query, query), entryDto));
   app.get('/api/v1/admin/competition-entries/:id', command(async request => ({ data: entryDto(await entries.read(id.parse(request.params.id))) })));
   for (const [name, status] of [['submit', 'SUBMITTED'], ['validate', 'VALIDATED'], ['reject', 'REJECTED'], ['withdraw', 'WITHDRAWN'], ['archive', 'ARCHIVED']] as const) app.post(`/api/v1/admin/competition-entries/:id/${name}`, command(async request => ({ data: entryDto(await entries.transition(actor(request), id.parse(request.params.id), status)) })));
+
+  app.get('/api/v1/admin/competition-reference/stages', reference(referenceStageList, competitionReferences.stages));
+  app.get('/api/v1/admin/competition-reference/occurrences', reference(referenceStageContext, competitionReferences.occurrences));
+  app.get('/api/v1/admin/competition-reference/events', reference(referenceStageContext, competitionReferences.events));
+  app.get('/api/v1/admin/competition-reference/categories', reference(referenceStageContext, competitionReferences.categories));
+  app.get('/api/v1/admin/competition-reference/regulation-versions', reference(referenceStageContext, competitionReferences.regulationVersions));
+  app.get('/api/v1/admin/competition-reference/teams', reference(referenceTeamList, competitionReferences.teams));
+
+  app.get('/api/v1/admin/competition-stages/:stageId/eligibility', command(async request => { nationalConfiguration(request); const stageId = id.parse(request.params.stageId); return { data: await stageEligibility.list(stageId) }; }));
+  app.post('/api/v1/admin/competition-stages/:stageId/eligibility', command(async request => {
+    nationalConfiguration(request); const stageId = id.parse(request.params.stageId);
+    const body = z.object({ scopeType: z.enum(['ORGANIZATION', 'DAIRA', 'INSTITUTION']), organizationId: id.optional(), dairaId: z.coerce.number().int().positive().optional(), institutionId: id.optional() }).superRefine((value, context) => {
+      const count = Number(Boolean(value.organizationId)) + Number(Boolean(value.dairaId)) + Number(Boolean(value.institutionId));
+      if (count !== 1 || (value.scopeType === 'ORGANIZATION' && !value.organizationId) || (value.scopeType === 'DAIRA' && !value.dairaId) || (value.scopeType === 'INSTITUTION' && !value.institutionId)) context.addIssue({ code: z.ZodIssueCode.custom, message: 'Eligibility target must match scope type' });
+    }).parse(request.body);
+    return { data: await stageEligibility.add(actor(request), stageId, body) };
+  }));
+  app.delete('/api/v1/admin/competition-stages/:stageId/eligibility/:eligibilityId', command(async request => { nationalConfiguration(request); return { data: await stageEligibility.remove(actor(request), id.parse(request.params.stageId), id.parse(request.params.eligibilityId)) }; }));
 
   app.post('/api/v1/admin/competition-results', command(async request => {
     const body = z.object({ competitionId: id, stageId: id, occurrenceId: id.optional(), eventId: id, categoryId: id, competitionEntryId: id, regulationVersionId: id, resultData: z.record(z.unknown()) }).parse(request.body);

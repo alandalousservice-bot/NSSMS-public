@@ -69,6 +69,18 @@ export async function canAccessResource(request: AuthenticatedRequest, resource:
   return Boolean(result.rowCount);
 }
 export type CompetitionScopedResource='competition_entry'|'competition_result'|'qualification'|'ranking'|'award'|'competition_team'|'competition_stage';
+export function stageEligibilityCondition(request: AuthenticatedRequest, stageAlias: string, parameter = 1): { sql: string; values: string[] } {
+  const kind = scopeKind(request);
+  if (kind === 'national') return { sql: 'TRUE', values: [] };
+  if (kind === 'organization') return { sql: `EXISTS (SELECT 1 FROM competition_stage_scope_eligibility eligibility WHERE eligibility.stage_id=${stageAlias}.id AND eligibility.scope_type='ORGANIZATION' AND eligibility.organization_id=$${parameter})`, values: [request.auth.organizationId!] };
+  if (kind === 'daira') return { sql: `EXISTS (SELECT 1 FROM competition_stage_scope_eligibility eligibility WHERE eligibility.stage_id=${stageAlias}.id AND eligibility.scope_type='DAIRA' AND eligibility.daira_id=$${parameter})`, values: [request.auth.dairaId!] };
+  if (kind === 'institution') return { sql: `EXISTS (SELECT 1 FROM competition_stage_scope_eligibility eligibility WHERE eligibility.stage_id=${stageAlias}.id AND eligibility.scope_type='INSTITUTION' AND eligibility.institution_id=$${parameter})`, values: [request.auth.institutionId!] };
+  return { sql: 'FALSE', values: [] };
+}
+export async function canDiscoverCompetitionStage(request: AuthenticatedRequest, id: string): Promise<boolean> {
+  const condition = stageEligibilityCondition(request, 's', 2);
+  return Boolean((await pool.query(`SELECT 1 FROM competition_stages s WHERE s.id=$1 AND ${condition.sql} LIMIT 1`, [id, ...condition.values])).rowCount);
+}
 export async function canAccessCompetitionResource(request:AuthenticatedRequest,resource:CompetitionScopedResource,id:string):Promise<boolean>{
   const condition=scopeCondition(request,'institution','i',2); const source:Record<CompetitionScopedResource,string>={
     competition_entry:'competition_entries e join educational_institutions i on i.id=e.institution_id',

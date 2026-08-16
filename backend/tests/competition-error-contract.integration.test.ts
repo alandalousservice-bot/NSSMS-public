@@ -46,6 +46,7 @@ suite('ARCH-014 competition HTTP error contract', () => {
     const headers = await login();
     const me = await app!.inject({ method: 'GET', url: '/api/v1/auth/me', headers });
     const x = await fixture(me.json().user.institutionId as string);
+    await pool!.query("insert into competition_stage_scope_eligibility(stage_id,scope_type,institution_id) values($1,'INSTITUTION',$2)", [x.stage, me.json().user.institutionId]);
     const rankingBody = { stageId: x.stage, occurrenceId: x.occurrence, eventId: x.event, categoryId: x.category, regulationVersionId: x.version, rankingType: 'EVENT', calculationVersion: 'error-contract' };
     const created = await app!.inject({ method: 'POST', url: '/api/v1/admin/rankings', headers, payload: rankingBody });
     expect(created.statusCode).toBe(200);
