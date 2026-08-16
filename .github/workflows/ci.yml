@@ -40,8 +40,15 @@ jobs:
         working-directory: frontend
       - run: npm run migrate
         working-directory: backend
+      - run: npm run import:geography
+        working-directory: backend
       - run: npm run seed:data
         working-directory: backend
+      - run: npm run seed:demo
+        working-directory: backend
+        env:
+          DEMO_ADMIN_PASSWORD: NssmsDemoAdmin-2026!
+          DEMO_NATIONAL_PASSWORD: NssmsDemoNational-2026!
       - run: npm run seed:national-accounts
         working-directory: backend
         env:
