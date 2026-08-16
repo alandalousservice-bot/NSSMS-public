@@ -1,0 +1,66 @@
+name: validation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: nssms
+          POSTGRES_PASSWORD: nssms
+          POSTGRES_DB: nssms
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nssms -d nssms"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://nssms:nssms@localhost:5432/nssms
+      AUTH_SECRET: ci-only-not-a-production-secret
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run migrate
+        working-directory: backend
+      - run: npm run seed:data
+        working-directory: backend
+      - run: npm run seed:national-accounts
+        working-directory: backend
+        env:
+          DEMO_ADMIN_PASSWORD: ci-demo-admin-password
+          DEMO_NATIONAL_PASSWORD: ci-demo-national-password
+      - run: npm run seed:scoped-accounts
+        working-directory: backend
+        env:
+          ASSOCIATION_ADMIN_PASSWORD: ci-association-admin-password
+          ASSOCIATION_REP_PASSWORD: ci-association-representative-password
+          INSTITUTION_USER_PASSWORD: ci-institution-user-password
+          DAIRA_OFFICER_PASSWORD: ci-daira-officer-password
+      - run: npm test
+        working-directory: backend
+      - run: npm run build
+        working-directory: backend
+      - run: npm test
+        working-directory: frontend
+      - run: npm run typecheck
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
