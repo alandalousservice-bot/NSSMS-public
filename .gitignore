@@ -7,3 +7,7 @@ coverage/
 *.log
 backend/var-demo-accounts.csv
 _incoming_geography_*/
+.tmp-arch016/
+scripts/
+*.md
+docs/
