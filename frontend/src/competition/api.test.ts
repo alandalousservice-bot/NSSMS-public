@@ -4,6 +4,7 @@ import { CompetitionApi, dependentSelection } from './api';
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 describe('CompetitionApi contract', () => {
+  it('loads competition overview records through the admin endpoint', async () => { const fetcher = vi.fn().mockResolvedValue(response({ data: [{ id: 'c1', season_id: 's1', season_name: 'موسم تجريبي', name: 'منافسة', status: 'ACTIVE', start_date: null, end_date: null }] })); const result = await new CompetitionApi('token', fetcher as unknown as typeof fetch).competitions.list(); expect(fetcher.mock.calls[0][0]).toContain('/api/v1/admin/competitions'); expect(result.data[0].season_name).toBe('موسم تجريبي'); });
   it('parses ARCH-015 collection envelopes and Result validation candidates', async () => {
     const fetcher = vi.fn().mockResolvedValue(response({ data: [{ id: 'result-1', governed_status: 'VALIDATED', current_validation: { id: 'validation-1', decision: 'VALIDATED', revision_no: 2, decided_at: null, decided_by_user_id: null }, is_evidence_candidate: true, official_payload: { score: 3 }, legacy_unresolved: false }], meta: { pagination: { limit: 25, offset: 0, total: 1 } } }));
     const result = await new CompetitionApi('token', fetcher as unknown as typeof fetch).results.list({ evidence_candidate: 'true' });

@@ -2,6 +2,7 @@ import { API_BASE_URL } from '../api-base';
 
 export type Pagination = { limit: number; offset: number; total: number };
 export type Envelope<T> = { data: T; meta?: { pagination?: Pagination } };
+export type Competition = { id: string; season_id: string; season_name: string; name: string; status: string; start_date: string | null; end_date: string | null; created_at: string | null; updated_at: string | null; archived_at: string | null };
 export type ApiErrorCode = 'UNAUTHORIZED' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT' | 'INVALID_STATE' | 'INVALID_CONTEXT' | 'VALIDATION_ERROR' | 'RATE_LIMITED' | 'INTERNAL_ERROR';
 export class CompetitionApiError extends Error {
   constructor(public code: ApiErrorCode, message: string, public requestId?: string, public status?: number) { super(message); }
@@ -44,6 +45,8 @@ export class CompetitionApi {
   get<T>(path: string, params: Record<string, unknown> = {}) { return this.request<T>(`${path}${query(params)}`); }
   post<T>(path: string, body?: unknown) { return this.request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }); }
   delete<T>(path: string) { return this.request<T>(path, { method: 'DELETE' }); }
+
+  competitions = { list: (params: PageQuery & { search?: string; seasonId?: string; status?: string } = {}) => this.get<Competition[]>('/api/v1/admin/competitions', params) };
 
   references = {
     stages: (params: PageQuery & { competition_id?: string; status?: string } = {}) => this.get<Reference[]>('/api/v1/admin/competition-reference/stages', params),
