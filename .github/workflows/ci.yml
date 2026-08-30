@@ -107,7 +107,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      - run: npm ci
+      - run: npm ci --include=dev
         working-directory: backend
       - run: npm run migrate
         working-directory: backend
