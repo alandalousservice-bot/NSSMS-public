@@ -2,7 +2,7 @@
   "name": "nssms-backend",
   "private": true,
   "type": "module",
-  "scripts": {"dev": "tsx src/server.ts", "build": "tsc -p tsconfig.json", "start": "node dist/server.js", "migrate": "node scripts/migrate.mjs", "seed:demo": "node scripts/create-demo-accounts.mjs", "seed:scoped-accounts": "node scripts/create-scoped-accounts.mjs", "seed:national-accounts": "node scripts/seed-national-accounts.mjs", "import:geography": "node scripts/import-geography.mjs", "seed:data": "node scripts/seed-demo-data.mjs", "test": "vitest run", "test:integration": "vitest run tests/db.integration.test.ts tests/workflow.integration.test.ts"},
+  "scripts": {"dev": "tsx src/server.ts", "build": "tsc -p tsconfig.json", "start": "node dist/server.js", "migrate": "node scripts/migrate.mjs", "seed:demo": "node scripts/create-demo-accounts.mjs", "seed:scoped-accounts": "node scripts/create-scoped-accounts.mjs", "seed:national-accounts": "node scripts/seed-national-accounts.mjs", "import:geography": "node scripts/import-geography.mjs", "seed:data": "node scripts/seed-demo-data.mjs",   "test": "vitest run", "test:integration": "node scripts/run-integration-tests.mjs", "test:release": "vitest run tests/competition-release-acceptance.integration.test.ts"},
   "dependencies": {"@fastify/cors": "^10.0.2", "@fastify/helmet": "^13.0.0", "@fastify/rate-limit": "^10.2.0", "fastify": "^5.2.1", "pg": "^8.13.1", "pino": "^9.6.0", "zod": "^3.24.1"},
   "devDependencies": {"@types/node": "^22.10.5", "@types/pg": "^8.11.10", "tsx": "^4.19.2", "typescript": "^5.7.2", "vitest": "^2.1.8"}
 }
