@@ -1,9 +1,12 @@
 import { readFile } from 'node:fs/promises';
+import { resolve, sep } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
-const root = new URL('../../_incoming_geography_20260814/laravel-algereography-main/database/seeders/', import.meta.url);
+const sourceDirectory = process.env.GEOGRAPHY_SOURCE_DIR ?? '../_incoming_geography_20260814/laravel-algereography-main/database/seeders';
+const root = pathToFileURL(`${resolve(process.cwd(), sourceDirectory)}${sep}`);
 const parse = (source) => [...source.matchAll(/\[\s*((?:.|\n)*?)\n\s*\],/g)].map(([, block]) => { const field = (key) => block.match(new RegExp(`'${key}'\\s*=>\\s*'?(\\d+|(?:\\\\'|[^'])*)'?`))?.[1] ?? null; return { id: Number(field('id')), name: field('name')?.replaceAll("\\'", "'"), arName: field('ar_name'), wilayaId: field('wilaya_id') ? Number(field('wilaya_id')) : null }; }).filter((row) => Number.isFinite(row.id) && row.name && row.arName);
 const wilayas = parse(await readFile(new URL('WilayaSeeder.php', root), 'utf8'));
 const dairas = parse(await readFile(new URL('DairaSeeder.php', root), 'utf8'));

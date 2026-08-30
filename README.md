@@ -64,6 +64,15 @@ Demo accounts:
 - `demo.admin` / `NssmsDemoAdmin-2026!`
 - `demo.national` / `NssmsDemoNational-2026!`
 
+> **WARNING - DEMO DATA ISOLATION:** the `seed:*` scripts (including any
+> simulation/demo datasets) are development-only tooling. NEVER RUN DEMO SEEDS
+> ON PILOT OR PRODUCTION DATABASES. Pilot deployments use a clean migrated
+> database and require an explicit strong `AUTH_SECRET`; see
+> `backend/.env.pilot.example` and `docs/000_Project/014_Pilot_Security_Hardening.md`
+> for the deployment contract, transport limits (`BODY_LIMIT_BYTES`,
+> `REQUEST_TIMEOUT_MS`), health/readiness behavior, and the documented session
+> revocation debt.
+
 Validation commands:
 
 ```powershell

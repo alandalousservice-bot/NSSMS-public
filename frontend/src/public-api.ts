@@ -1,0 +1,9 @@
+import { API_BASE_URL } from './api-base';
+
+export type PublicResult = { id: string; competition_name: string; season_name: string; stage_level_code: string; event_name: string; category_name: string; held_at: string | null; entry_type: 'INDIVIDUAL' | 'TEAM'; competitor_name: string | null; position: number | null; points: number | null; status: 'OFFICIAL'; published_at: string | null };
+export type PublicAward = { id: string; award_type: string; label: string | null; status: 'ISSUED'; issued_at: string | null; ranking_type: string | null; calculation_version: string | null; competition_id: string; competition_name: string; season_name: string; stage_level_code: string; category_name: string | null; event_name: string | null; competitor_name: string | null; source: 'OFFICIAL' };
+export type PublicRecord = { id: string; ranking_type: 'EVENT' | 'CATEGORY' | 'STAGE'; status: 'VALIDATED' | 'PUBLISHED'; calculation_version: string; competition_id: string; competition_name: string; season_name: string; stage_level_code: string; event_name: string | null; category_name: string | null; source: 'OFFICIAL'; recognized_at: string | null };
+export type PublicEnvelope<T> = { data: T[]; page?: number; pageSize?: number };
+export class PublicApiError extends Error { constructor(public readonly status?: number) { super('تعذر تحميل البيانات العامة حالياً.'); } }
+async function get<T>(path: string, fetcher: typeof fetch = fetch): Promise<PublicEnvelope<T>> { const response = await fetcher(`${API_BASE_URL}${path}`); const body = await response.json().catch(() => ({})); if (!response.ok) throw new PublicApiError(response.status); return body as PublicEnvelope<T>; }
+export const publicApi = { results: (fetcher?: typeof fetch) => get<PublicResult>('/api/v1/public/results', fetcher), awards: (fetcher?: typeof fetch) => get<PublicAward>('/api/v1/public/awards', fetcher), records: (fetcher?: typeof fetch) => get<PublicRecord>('/api/v1/public/records', fetcher) };

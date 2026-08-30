@@ -68,3 +68,32 @@ export async function canAccessResource(request: AuthenticatedRequest, resource:
   const result = await pool.query(`SELECT 1 FROM ${tables[resource]} r WHERE r.id=$1 AND ${condition.sql} LIMIT 1`, [id, ...condition.values]);
   return Boolean(result.rowCount);
 }
+export type CompetitionScopedResource='competition_entry'|'competition_result'|'qualification'|'ranking'|'award'|'competition_team'|'competition_stage';
+export function stageEligibilityCondition(request: AuthenticatedRequest, stageAlias: string, parameter = 1): { sql: string; values: string[] } {
+  const kind = scopeKind(request);
+  if (kind === 'national') return { sql: 'TRUE', values: [] };
+  if (kind === 'organization') return { sql: `EXISTS (SELECT 1 FROM competition_stage_scope_eligibility eligibility WHERE eligibility.stage_id=${stageAlias}.id AND eligibility.scope_type='ORGANIZATION' AND eligibility.organization_id=$${parameter})`, values: [request.auth.organizationId!] };
+  if (kind === 'daira') return { sql: `EXISTS (SELECT 1 FROM competition_stage_scope_eligibility eligibility WHERE eligibility.stage_id=${stageAlias}.id AND eligibility.scope_type='DAIRA' AND eligibility.daira_id=$${parameter})`, values: [request.auth.dairaId!] };
+  if (kind === 'institution') return { sql: `EXISTS (SELECT 1 FROM competition_stage_scope_eligibility eligibility WHERE eligibility.stage_id=${stageAlias}.id AND eligibility.scope_type='INSTITUTION' AND eligibility.institution_id=$${parameter})`, values: [request.auth.institutionId!] };
+  return { sql: 'FALSE', values: [] };
+}
+export async function canDiscoverCompetitionStage(request: AuthenticatedRequest, id: string): Promise<boolean> {
+  const condition = stageEligibilityCondition(request, 's', 2);
+  return Boolean((await pool.query(`SELECT 1 FROM competition_stages s WHERE s.id=$1 AND ${condition.sql} LIMIT 1`, [id, ...condition.values])).rowCount);
+}
+export async function canAccessCompetitionResource(request:AuthenticatedRequest,resource:CompetitionScopedResource,id:string):Promise<boolean>{
+  const condition=scopeCondition(request,'institution','i',2); const source:Record<CompetitionScopedResource,string>={
+    competition_entry:'competition_entries e join educational_institutions i on i.id=e.institution_id',
+    competition_result:'results r join competition_entries e on e.id=r.competition_entry_id join educational_institutions i on i.id=e.institution_id',
+    qualification:'qualifications q join competition_entries e on e.id=q.source_entry_id join educational_institutions i on i.id=e.institution_id',
+    ranking:'rankings r join competition_entries e on e.stage_id=r.stage_id join educational_institutions i on i.id=e.institution_id',
+    award:'awards a join competition_entries e on e.id=a.competition_entry_id join educational_institutions i on i.id=e.institution_id',
+    competition_team:'teams t join educational_institutions i on i.id=t.institution_id',
+    competition_stage:'competition_stages s join competition_entries e on e.stage_id=s.id join educational_institutions i on i.id=e.institution_id'
+  }; const alias=resource==='competition_entry'?'e':resource==='competition_result'?'r':resource==='qualification'?'q':resource==='ranking'?'r':resource==='award'?'a':resource==='competition_stage'?'s':'t';
+  if(scopeKind(request)==='national')return competitionResourceExists(resource,id);
+  const row=await pool.query(`select 1 from ${source[resource]} where ${alias}.id=$1 and ${condition.sql} limit 1`,[id,...condition.values]);return Boolean(row.rowCount);
+}
+
+
+export async function competitionResourceExists(resource:CompetitionScopedResource,id:string):Promise<boolean>{const source:Record<CompetitionScopedResource,string>={competition_entry:'competition_entries e',competition_result:'results r',qualification:'qualifications q',ranking:'rankings r',award:'awards a',competition_team:'teams t',competition_stage:'competition_stages s'},alias=resource==='competition_entry'?'e':resource==='competition_result'?'r':resource==='qualification'?'q':resource==='ranking'?'r':resource==='award'?'a':resource==='competition_stage'?'s':'t';return Boolean((await pool.query(`select 1 from ${source[resource]} where ${alias}.id=$1 limit 1`,[id])).rowCount)}
