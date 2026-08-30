@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-08-26
+
+- Pilot hardening (ARENA-RABITA-PILOT-HARDENING-001): legacy `PATCH /api/v1/admin/results/:id` and `POST /api/v1/admin/results/:id/status` now reject governed results with `409 governed_result_immutable`; corrections must use the governed revision/validation flow. Generic archive route no longer accepts `results` and re-verifies resource scope in-handler (`ARCHIVE_SCOPE_DENIED` audit on denial).
+- AUTH_SECRET startup policy hardened: production (and remotely accessible pilot/staging) requires an explicit secret of at least 32 characters and rejects known placeholder values; the development fallback remains isolated to NODE_ENV=development/test on local machines.
+- Public portal surfaces now serve governed data only: `/api/v1/public/results` returns a safe public Result DTO (no raw `result_data`/internal JSON, institution/team identity only, official placement from current rankings); added `/api/v1/public/awards` (ISSUED only) and `/api/v1/public/records` (current official ranking chains only).
+- Qualification evidence validation now rejects superseded/stale result validations via the governed error contract.
+- Documented deployment limits (`BODY_LIMIT_BYTES`, `REQUEST_TIMEOUT_MS`), health/readiness contract, pilot environment template (`backend/.env.pilot.example`), demo-data isolation rules, and the explicit session-revocation debt classification in `docs/000_Project/014_Pilot_Security_Hardening.md`.
+
 ## 2026-08-13
 
 - Refined the frontend public portal and admin login flow with correct Arabic text encoding, configurable `VITE_API_URL`, resilient public-list loading, and a cleaner demo-account login experience.

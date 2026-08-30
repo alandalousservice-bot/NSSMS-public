@@ -74,3 +74,67 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
+
+  pilot-startup-no-seed:
+    # Proves the pilot deployment contract from
+    # docs/000_Project/014_Pilot_Security_Hardening.md section 8: the API boots
+    # against a freshly migrated database with production configuration and
+    # zero demo seeding.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: nssms
+          POSTGRES_PASSWORD: nssms
+          POSTGRES_DB: nssms
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nssms -d nssms"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://nssms:nssms@localhost:5432/nssms
+      NODE_ENV: production
+      AUTH_SECRET: pilot-startup-ci-secret-0123456789abcdef
+      CORS_ALLOWED_ORIGINS: https://pilot.example.org
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm run migrate
+        working-directory: backend
+      - run: npm run build
+        working-directory: backend
+      - name: Boot the API unseeded and verify readiness and demo isolation
+        working-directory: backend
+        run: |
+          node dist/server.js &
+          server_pid=$!
+          ready=0
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/ready 2>/dev/null | grep -q '"database":"ok"'; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" != "1" ]; then
+            echo "::error::API did not become ready on a fresh migrated database"
+            kill $server_pid 2>/dev/null || true
+            exit 1
+          fi
+          curl -fsS http://127.0.0.1:3000/health
+          echo
+          users=$(psql "$DATABASE_URL" -tAc 'select count(*) from users')
+          echo "users after unseeded startup: $users"
+          if [ "$users" != "0" ]; then
+            echo "::error::startup must not seed any accounts on a pilot database"
+            kill $server_pid 2>/dev/null || true
+            exit 1
+          fi
+          kill $server_pid 2>/dev/null || true

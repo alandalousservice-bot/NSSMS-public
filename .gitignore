@@ -3,9 +3,13 @@ dist/
 .env
 .env.*
 !.env.example
+!backend/.env.pilot.example
 coverage/
 *.log
 backend/var-demo-accounts.csv
 _incoming_geography_*/
 .tmp-arch016/
 scripts/
+!backend/scripts/
+!backend/scripts/prepare-integration-fixture.mjs
+!backend/scripts/run-integration-tests.mjs
